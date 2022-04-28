@@ -70,7 +70,8 @@ class Worker:
                     print(name, p.data.shape)
             print('total memory usage:', total_memory / 1024 / 8)
 
-        self.attempt_loading()
+        if not self.exp.load.super_load:
+            self.attempt_loading()
 
     @staticmethod
     def get_device(cuda):
@@ -80,24 +81,24 @@ class Worker:
             return GPU.auto_choose(torch_format=True)
         return "cuda:{}".format(cuda)
 
+    def _attempt_loading(self, path):
+        load_path = os.path.join(self.args.store.save_dir, path)
+        print("load model from exp {}".format(load_path))
+        state_dict = torch.load(load_path, map_location=self.device)
+
+        model_ckpt = state_dict['model']
+
+        self.save_model.load_state_dict(model_ckpt, strict=not self.exp.load.relax_load)
+        load_status = False
+        if self.exp.mode not in self.static_modes and not self.exp.load.load_model_only:
+            load_status = True
+            self.m_optimizer.load_state_dict(state_dict['optimizer'])
+            self.m_scheduler.load_state_dict(state_dict['scheduler'])
+        print('Load optimizer and scheduler:', load_status)
+
     def attempt_loading(self):
         if self.exp.load.load_ckpt is not None:
-            load_path = os.path.join(self.args.store.save_dir, self.exp.load.load_ckpt)
-            print("load model from exp {}".format(load_path))
-            state_dict = torch.load(load_path, map_location=self.device)
-
-            model_ckpt = state_dict['model']
-            # if self.exp.mode == 'test':
-            #     del model_ckpt['embedding_tables.track_id.weight']
-            #     del model_ckpt['extra_modules.sim-mlm.track_id.embedding_table']
-
-            self.save_model.load_state_dict(model_ckpt, strict=not self.exp.load.relax_load)
-            load_status = False
-            if self.exp.mode not in self.static_modes and not self.exp.load.load_model_only:
-                load_status = True
-                self.m_optimizer.load_state_dict(state_dict['optimizer'])
-                self.m_scheduler.load_state_dict(state_dict['scheduler'])
-            print('Load optimizer and scheduler:', load_status)
+            self._attempt_loading(self.exp.load.load_ckpt)
 
     def log_interval(self, epoch, step, task: PretrainTask, loss):
         print(
@@ -241,10 +242,21 @@ class Worker:
         elif self.exp.mode == 'export':
             self.export()
         elif self.exp.mode == 'test':
-            for task in tasks:
-                if task.name == 'non':
-                    continue
-                self.test(task)
+            if not self.exp.load.super_load:
+                for task in tasks:
+                    if task.name == 'non':
+                        continue
+                    self.test(task)
+            else:
+                epochs = eval(self.exp.load.epochs)
+                for epoch in epochs:
+                    ckpt_base_path = self.exp.load.ckpt_base_path
+                    self._attempt_loading(os.path.join(ckpt_base_path, f'epoch_{epoch}.bin'))
+
+                    for task in tasks:
+                        if task.name == 'non':
+                            continue
+                        self.test(task)
 
 
 if __name__ == "__main__":
