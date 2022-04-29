@@ -29,15 +29,23 @@ class PretrainTask:
 
         self.extra_module = None  # type: Optional[nn.ModuleDict]
         self.is_training = True
+        self.is_validating = False
+        self.is_testing = False
 
     def __str__(self):
         return self.name
 
+    def test(self):
+        self.is_testing = True
+        self.is_training = self.is_validating = False
+
     def eval(self):
-        self.is_training = False
+        self.is_validating = True
+        self.is_training = self.is_testing = False
 
     def train(self):
         self.is_training = True
+        self.is_validating = self.is_testing = False
 
     def start_epoch(self, current_epoch, total_epoch):
         return

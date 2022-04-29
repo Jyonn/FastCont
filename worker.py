@@ -1,5 +1,6 @@
 import argparse
 import os
+from typing import Dict, Union
 
 import numpy as np
 import torch
@@ -190,10 +191,49 @@ class Worker:
         return avg_loss.item()
 
     def test(self, task: PretrainTask):
-        avg_loss = self.dev(task=task, d_loader=self.data.get_loader(self.data.TEST, task))
+        assert isinstance(task, MLMTask)
+        self.model.eval()
+        task.test()
+        loader = self.data.get_loader(self.data.TEST, task)
 
-        print("task {}, "
-              "loss {:.4f}".format(task.name, avg_loss))
+        overlap_rate_dict = dict()  # type: Dict[str, Union[list, float]]
+        hit_rate_dict = dict()  # type: Dict[str, Union[list, float]]
+        for hit_rate in self.exp.policy.hit_rates:
+            overlap_rate_dict[str(hit_rate)] = []
+            hit_rate_dict[str(hit_rate)] = []
+
+        for step, batch in enumerate(tqdm(loader)):
+            with torch.no_grad():
+                output = self.model(
+                    batch=batch,
+                    task=task,
+                )[task.pred_items]
+                mask_labels_col = batch['mask_labels_col']
+                indexes = batch['append_info']['index']
+
+                col_mask = mask_labels_col[task.pred_items]
+
+                for i_batch in range(len(indexes)):
+                    ground_truth = set(task.depot[indexes[i_batch]]['pred_items'])
+
+                    for hit_rate in self.exp.policy.hit_rates:
+                        candidates_per_channel = max(hit_rate // len(ground_truth), 1)
+
+                        candidates = set()
+                        for i_tok in range(task.dataset.max_sequence):
+                            if col_mask[i_batch][i_tok]:
+                                candidates.update(
+                                    torch.argsort(
+                                        output[i_batch][i_tok], descending=True).cpu().tolist()[:candidates_per_channel])
+
+                        overlap_rate_dict[str(hit_rate)].append(len(candidates) / (candidates_per_channel * len(ground_truth)))
+                        hit_rate_dict[str(hit_rate)].append(int(bool(candidates.intersection(ground_truth))))
+
+        for hit_rate in self.exp.policy.hit_rates:
+            for d in [overlap_rate_dict, hit_rate_dict]:
+                d[str(hit_rate)] = torch.tensor(d[str(hit_rate)], dtype=torch.float).mean().item()
+            print('HR@%4d: %.4f' % (hit_rate, hit_rate_dict[str(hit_rate)]))
+            print('OR@%4d: %.4f' % (hit_rate, overlap_rate_dict[str(hit_rate)]))
 
     def export(self):
         # bert_aggregator = BertAggregator(

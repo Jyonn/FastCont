@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 import numpy as np
 import torch
+from UniTok import UniDep
 from torch import nn
 from transformers import BertConfig
 from transformers.activations import ACT2FN
@@ -141,10 +142,7 @@ class MLMTask(PretrainTask):
     def _init_extra_module(self):
         module_dict = dict()
         print('[IN MLM TASK]')
-        for col_name in self.dataset.order:
-            if self.apply_cols and col_name not in self.apply_cols:
-                continue
-
+        for col_name in self.apply_cols:
             vocab = self.depot.col_info.d[col_name].vocab
             if vocab in module_dict:
                 print('Escape create modules for', col_name, '(', vocab, ')')
@@ -160,10 +158,7 @@ class MLMTask(PretrainTask):
     def produce_output(self, bert_output: BaseModelOutputWithPoolingAndCrossAttentions, **kwargs):
         last_hidden_state = bert_output.last_hidden_state
         output_dict = dict()
-        for col_name in self.dataset.order:
-            if self.apply_cols and col_name not in self.apply_cols:
-                continue
-
+        for col_name in self.apply_cols:
             vocab = self.depot.col_info.d[col_name].vocab
             classification_module = self.extra_module[vocab]
             output_dict[col_name] = classification_module(last_hidden_state)
@@ -174,12 +169,7 @@ class MLMTask(PretrainTask):
         mask_labels = batch['mask_labels'].to(self.device)  # type: torch.Tensor
 
         total_loss = torch.tensor(0, dtype=torch.float).to(self.device)
-        for col_name in mask_labels_col:
-            if self.apply_cols and col_name not in self.apply_cols:
-                continue
-
-            if col_name == self.dataset.special_id:
-                continue
+        for col_name in self.apply_cols:
             col_mask = mask_labels_col[col_name].to(self.device)  # type: torch.Tensor
             col_labels = torch.mul(col_mask, mask_labels) + \
                          torch.ones(mask_labels.shape, dtype=torch.long).to(self.device) * (col_mask - 1) * 100
