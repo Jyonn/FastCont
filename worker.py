@@ -7,7 +7,7 @@ import torch
 from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
-from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions as BertOutput
+from utils.transformers_adaptor import BertOutput
 
 from loader.data import Data
 from loader.task_depot.mlm_task import MLMTask

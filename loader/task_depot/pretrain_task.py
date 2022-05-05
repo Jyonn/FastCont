@@ -3,7 +3,7 @@ from typing import Dict, Optional
 import torch
 from UniTok import UniDep
 from torch import nn
-from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
+from utils.transformers_adaptor import BertOutput
 
 from loader.bert_init import BertInit
 from loader.bert_dataset import BertDataset
@@ -96,7 +96,7 @@ class PretrainTask:
 
         return input_embeds
 
-    def produce_output(self, bert_output: BaseModelOutputWithPoolingAndCrossAttentions, **kwargs):
+    def produce_output(self, bert_output: BertOutput, **kwargs):
         raise NotImplementedError
 
     def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:

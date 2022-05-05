@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
+from utils.transformers_adaptor import BertOutput
 
 from loader.task_depot.pretrain_task import PretrainTask
 
@@ -12,7 +12,7 @@ class NonTask(PretrainTask):
     def init_parallel(self):
         pass
 
-    def produce_output(self, bert_output: BaseModelOutputWithPoolingAndCrossAttentions, **kwargs):
+    def produce_output(self, bert_output: BertOutput, **kwargs):
         return bert_output
 
     def rebuild_batch(self, batch):

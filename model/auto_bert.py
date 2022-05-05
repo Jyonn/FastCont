@@ -2,7 +2,7 @@ from typing import Union
 
 import torch
 from torch import nn
-from transformers.models.bert.modeling_bert import BertModel
+from utils.transformers_adaptor import BertModel
 
 from loader.bert_init import BertInit
 from loader.task_depot.pretrain_depot import PretrainDepot

@@ -8,7 +8,7 @@ from UniTok import UniDep
 from torch import nn
 from transformers import BertConfig
 from transformers.activations import ACT2FN
-from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
+from utils.transformers_adaptor import BertOutput
 
 from loader.task_depot.pretrain_task import PretrainTask, TaskLoss
 from utils.time_printer import printer as print
@@ -155,7 +155,7 @@ class MLMTask(PretrainTask):
     def _get_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
         return table(matrix)
 
-    def produce_output(self, bert_output: BaseModelOutputWithPoolingAndCrossAttentions, **kwargs):
+    def produce_output(self, bert_output: BertOutput, **kwargs):
         last_hidden_state = bert_output.last_hidden_state
         output_dict = dict()
         for col_name in self.apply_cols:
