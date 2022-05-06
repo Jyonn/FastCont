@@ -114,7 +114,7 @@ class SimMLMTask(PretrainTask):
         batch['mask_labels'] = mask_labels
         return batch
 
-    def init_extra_module(self):
+    def _init_extra_module(self):
         module_dict = dict()
         embedding_tables = self.model_init.get_embedding_tables()
 

@@ -35,6 +35,6 @@ class AutoBert(AutoModel):
             return_dict=True
         )  # type: BertOutput
 
-        self.print('bert output device', bert_output.last_hidden_state.get_device())
+        # self.print('bert output device', bert_output.last_hidden_state.get_device())
 
         return task.produce_output(bert_output)

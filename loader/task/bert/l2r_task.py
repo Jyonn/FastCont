@@ -84,7 +84,7 @@ class L2RTask(PretrainTask):
         batch['attention_mask'] = attention_mask
         return batch
 
-    def init_extra_module(self):
+    def _init_extra_module(self):
         vocab = self.depot.col_info.d[self.apply_col].vocab
         vocab_size = self.depot.get_vocab_size(vocab, as_vocab=True)
 

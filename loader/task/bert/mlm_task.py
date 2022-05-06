@@ -142,7 +142,7 @@ class MLMTask(PretrainTask):
         batch['mask_labels'] = mask_labels
         return batch
 
-    def init_extra_module(self):
+    def _init_extra_module(self):
         module_dict = dict()
         for col_name in self.apply_cols:
             vocab = self.depot.col_info.d[col_name].vocab

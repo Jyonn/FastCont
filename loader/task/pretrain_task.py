@@ -27,7 +27,7 @@ class PretrainTask:
 
         self.print = printer[(self.__class__.__name__, '-', Color.YELLOW)]
 
-        self._extra_module = None  # type: Optional[nn.ModuleDict]
+        self.extra_module = None  # type: Optional[nn.ModuleDict]
         self.is_training = True
         self.is_validating = False
         self.is_testing = False
@@ -79,14 +79,11 @@ class PretrainTask:
     Extra module
     """
 
-    @property
-    def extra_module(self):
-        if self._extra_module:
-            return self._extra_module
-        self._extra_module = self.init_extra_module()
-        return self._extra_module
-
     def init_extra_module(self):
+        self.extra_module = self._init_extra_module()
+        return self.extra_module
+
+    def _init_extra_module(self):
         raise NotImplementedError
 
     def rebuild_batch(self, batch):

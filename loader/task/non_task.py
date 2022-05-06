@@ -2,7 +2,7 @@ from loader.task.pretrain_task import PretrainTask
 
 
 class NonTask(PretrainTask):
-    def init_extra_module(self):
+    def _init_extra_module(self):
         return None
 
     def init_parallel(self):

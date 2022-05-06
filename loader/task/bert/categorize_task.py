@@ -35,7 +35,7 @@ class CategorizeTask(PretrainTask):
     def rebuild_batch(self, batch):
         return batch
 
-    def init_extra_module(self):
+    def _init_extra_module(self):
         vocab = self.depot.get_vocab(self.cat_col)
         vocab_size = self.depot.get_vocab_size(vocab, as_vocab=True)
         return ClassificationModule(self.model_init.model_config, vocab_size)

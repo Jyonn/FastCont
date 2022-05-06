@@ -50,7 +50,7 @@ class AlignTask(PretrainTask):
             rebuilt_batch.append(batch)
         return self.dictifier(rebuilt_batch)
 
-    def init_extra_module(self):
+    def _init_extra_module(self):
         return ClassificationModule(self.model_init.model_config, 2)
 
     def produce_output(self, model_output: BertOutput, **kwargs):

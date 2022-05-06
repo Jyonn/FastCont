@@ -69,7 +69,7 @@ class Worker:
             for name, p in self.auto_model.named_parameters():  # type: str, torch.Tensor
                 total_memory += p.element_size() * p.nelement()
                 if p.requires_grad and not name.startswith('bert.'):
-                    self.print(name, p.data.shape)
+                    self.print(name, p.data.shape, p.data.get_device())
             self.print('total memory usage:', total_memory / 1024 / 8)
 
         if not self.exp.load.super_load:
