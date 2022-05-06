@@ -3,9 +3,9 @@ from typing import Union
 import torch
 
 from model.auto_model import AutoModel
-from utils.transformers_adaptor import BertModel
+from utils.transformers_adaptor import BertModel, BertOutput
 
-from loader.task_depot.pretrain_task import PretrainTask
+from loader.task.pretrain_task import PretrainTask
 
 
 class AutoBert(AutoModel):
@@ -33,6 +33,8 @@ class AutoBert(AutoModel):
             token_type_ids=segment_ids,
             output_hidden_states=True,
             return_dict=True
-        )
+        )  # type: BertOutput
+
+        self.print('bert output device', bert_output.last_hidden_state.get_device())
 
         return task.produce_output(bert_output)

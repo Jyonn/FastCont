@@ -10,13 +10,13 @@ from transformers import get_linear_schedule_with_warmup
 from utils.transformers_adaptor import BertOutput
 
 from loader.data import Data
-from loader.task_depot.mlm_task import MLMTask
-from loader.task_depot.pretrain_task import PretrainTask
+from loader.task.bert.mlm_task import MLMTask
+from loader.task.pretrain_task import PretrainTask
 from model.auto_bert import AutoBert
 from utils.config_initializer import init_config
 from utils.gpu import GPU
 from utils.random_seed import seeding
-from utils.smart_printer import SmartPrinter, printer as print
+from utils.smart_printer import SmartPrinter, printer, Color
 from utils.logger import Logger
 
 
@@ -24,6 +24,7 @@ class Worker:
     def __init__(self, project_args, project_exp, cuda=None):
         self.args = project_args
         self.exp = project_exp
+        self.print = printer[('MAIN', '·', Color.CYAN)]
 
         self.logging = Logger(self.args.store.log_path)
         SmartPrinter.logger = self.logging
@@ -36,17 +37,17 @@ class Worker:
             device=self.device,
         )
 
-        print(self.data.depots['train'][0])
+        self.print(self.data.depots['train'][0])
 
-        self.model = AutoBert(
+        self.auto_model = AutoBert(
             device=self.device,
-            bert_init=self.data.bert_init,
+            model_init=self.data.bert_init,
             pretrain_depot=self.data.pretrain_depot,
         )
 
-        self.model.to(self.device)
-        print(self.model.bert.config)
-        self.save_model = self.model
+        self.auto_model.to(self.device)
+        self.print(self.auto_model.model.config)
+        self.save_model = self.auto_model
 
         self.static_modes = ['export', 'dev', 'test']
 
@@ -54,7 +55,7 @@ class Worker:
             self.m_optimizer = self.m_scheduler = None
         else:
             self.m_optimizer = torch.optim.Adam(
-                params=filter(lambda p: p.requires_grad, self.model.parameters()),
+                params=filter(lambda p: p.requires_grad, self.auto_model.parameters()),
                 lr=self.exp.policy.lr
             )
             self.m_scheduler = get_linear_schedule_with_warmup(
@@ -63,13 +64,13 @@ class Worker:
                 num_training_steps=len(self.data.train_set) // self.exp.policy.batch_size * self.exp.policy.epoch,
             )
 
-            print('training params')
+            self.print('training params')
             total_memory = 0
-            for name, p in self.model.named_parameters():  # type: str, torch.Tensor
+            for name, p in self.auto_model.named_parameters():  # type: str, torch.Tensor
                 total_memory += p.element_size() * p.nelement()
                 if p.requires_grad and not name.startswith('bert.'):
-                    print(name, p.data.shape)
-            print('total memory usage:', total_memory / 1024 / 8)
+                    self.print(name, p.data.shape)
+            self.print('total memory usage:', total_memory / 1024 / 8)
 
         if not self.exp.load.super_load:
             self.attempt_loading()
@@ -84,7 +85,7 @@ class Worker:
 
     def _attempt_loading(self, path):
         load_path = os.path.join(self.args.store.save_dir, path)
-        print("load model from exp {}".format(load_path))
+        self.print("load model from exp {}".format(load_path))
         state_dict = torch.load(load_path, map_location=self.device)
 
         model_ckpt = state_dict['model']
@@ -95,14 +96,14 @@ class Worker:
             load_status = True
             self.m_optimizer.load_state_dict(state_dict['optimizer'])
             self.m_scheduler.load_state_dict(state_dict['scheduler'])
-        print('Load optimizer and scheduler:', load_status)
+        self.print('Load optimizer and scheduler:', load_status)
 
     def attempt_loading(self):
         if self.exp.load.load_ckpt is not None:
             self._attempt_loading(self.exp.load.load_ckpt)
 
     def log_interval(self, epoch, step, task: PretrainTask, loss):
-        print(
+        self.print(
             "epoch {}, step {}, "
             "task {}, "
             "loss {:.4f}".format(
@@ -113,7 +114,7 @@ class Worker:
             ))
 
     def train(self, *tasks: PretrainTask):
-        print('Start Training')
+        self.print('Start Training')
 
         train_steps = len(self.data.train_set) // self.exp.policy.batch_size
         accumulate_step = 0
@@ -126,15 +127,15 @@ class Worker:
                 task.train()
                 task.start_epoch(epoch - self.exp.policy.epoch_start, self.exp.policy.epoch)
             t_loader = self.data.get_loader(self.data.TRAIN, *tasks)
-            self.model.train()
+            self.auto_model.train()
             for step, batch in enumerate(tqdm(t_loader)):
                 task = batch['task']
-                task_output = self.model(
+                task_output = self.auto_model(
                     batch=batch,
                     task=task,
                 )
 
-                loss = task.calculate_loss(batch, task_output, model=self.model)
+                loss = task.calculate_loss(batch, task_output, model=self.auto_model)
                 loss.backward()
 
                 accumulate_step += 1
@@ -152,35 +153,35 @@ class Worker:
                         if (step + 1) % self.exp.policy.check_interval == 0:
                             self.log_interval(epoch, step, task, loss.loss)
 
-            print('end epoch')
+            self.print('end epoch')
             avg_loss = self.dev(task=task)
-            print("epoch {} finished, "
+            self.print("epoch {} finished, "
                   "task {}, "
                   "loss {:.4f}".format(epoch, task.name, avg_loss))
 
             if (epoch + 1) % self.exp.policy.store_interval == 0:
                 epoch_path = os.path.join(self.args.store.ckpt_path, 'epoch_{}.bin'.format(epoch))
                 state_dict = dict(
-                    model=self.model.state_dict(),
+                    model=self.auto_model.state_dict(),
                     optimizer=self.m_optimizer.state_dict(),
                     scheduler=self.m_scheduler.state_dict(),
                 )
                 torch.save(state_dict, epoch_path)
-        print('Training Ended')
+        self.print('Training Ended')
 
     def dev(self, task: PretrainTask, steps=None, d_loader=None):
         avg_loss = torch.tensor(.0).to(self.device)
-        self.model.eval()
+        self.auto_model.eval()
         task.eval()
         d_loader = d_loader or self.data.get_loader(self.data.DEV, task)
         for step, batch in enumerate(tqdm(d_loader)):
             with torch.no_grad():
-                task_output = self.model(
+                task_output = self.auto_model(
                     batch=batch,
                     task=task,
                 )
 
-                loss = task.calculate_loss(batch, task_output, model=self.model)
+                loss = task.calculate_loss(batch, task_output, model=self.auto_model)
                 avg_loss += loss.loss
 
             if steps and step >= steps:
@@ -192,7 +193,7 @@ class Worker:
 
     def test(self, task: PretrainTask):
         assert isinstance(task, MLMTask)
-        self.model.eval()
+        self.auto_model.eval()
         task.test()
         loader = self.data.get_loader(self.data.TEST, task)
 
@@ -204,7 +205,7 @@ class Worker:
 
         for step, batch in enumerate(tqdm(loader)):
             with torch.no_grad():
-                output = self.model(
+                output = self.auto_model(
                     batch=batch,
                     task=task,
                 )[task.pred_items]
@@ -232,8 +233,8 @@ class Worker:
         for hit_rate in self.exp.policy.hit_rates:
             for d in [overlap_rate_dict, hit_rate_dict]:
                 d[str(hit_rate)] = torch.tensor(d[str(hit_rate)], dtype=torch.float).mean().item()
-            print('HR@%4d: %.4f' % (hit_rate, hit_rate_dict[str(hit_rate)]))
-            print('OR@%4d: %.4f' % (hit_rate, overlap_rate_dict[str(hit_rate)]))
+            self.print('HR@%4d: %.4f' % (hit_rate, hit_rate_dict[str(hit_rate)]))
+            self.print('OR@%4d: %.4f' % (hit_rate, overlap_rate_dict[str(hit_rate)]))
 
     def export(self):
         # bert_aggregator = BertAggregator(
@@ -251,7 +252,7 @@ class Worker:
                        self.data.get_loader(self.data.DEV, self.data.non_task)]:
             for batch in tqdm(loader):
                 with torch.no_grad():
-                    task_output = self.model(batch=batch, task=self.data.non_task)  # type: BertOutput
+                    task_output = self.auto_model(batch=batch, task=self.data.non_task)  # type: BertOutput
                     task_output = task_output.last_hidden_state.detach()  # type: torch.Tensor  # [B, S, D]
                     attention_sum = batch['attention_mask'].to(self.device).sum(-1).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
                     attention_mask = batch['attention_mask'].to(self.device).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
@@ -278,7 +279,7 @@ class Worker:
             display_string = ', '.join(display_string)
             display_value = tuple(display_value)
             display_string = display_string.format(*display_value)
-            print(display_string)
+            self.print(display_string)
         elif self.exp.mode == 'export':
             self.export()
         elif self.exp.mode == 'test':

@@ -15,7 +15,7 @@ class ModelDataset(Dataset):
 
     max_sequence: int
 
-    injected_task: any
+    injected_task: any = None
 
     def inject_task(self, task):
         self.injected_task = task

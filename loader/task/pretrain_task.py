@@ -6,6 +6,7 @@ from torch import nn
 
 from loader.dataset.model_dataset import ModelDataset
 from loader.init.model_init import ModelInit
+from utils.smart_printer import printer, Color
 
 
 class TaskLoss:
@@ -23,6 +24,8 @@ class PretrainTask:
         self.depot = None  # type: Optional[UniDep]
         self.model_init = None  # type: Optional[ModelInit]
         self.device = None
+
+        self.print = printer[(self.__class__.__name__, '-', Color.YELLOW)]
 
         self._extra_module = None  # type: Optional[nn.ModuleDict]
         self.is_training = True

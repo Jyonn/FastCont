@@ -21,14 +21,14 @@ class TransformEmbedding(nn.Module):
 class ModelInit:
     def __init__(
             self,
-            model_dataset: ModelDataset,
+            dataset: ModelDataset,
             hidden_size: int = 768,
             embedding_init: EmbeddingInit = None,
             global_freeze: bool = False,
     ):
-        self.print = printer.MODEL__INIT
-        self.dataset = model_dataset
-        self.depot = model_dataset.depot
+        self.print = printer.MODEL__INIT_Cblue_
+        self.dataset = dataset
+        self.depot = dataset.depot
         self.hidden_size = hidden_size
         self.embedding_init = embedding_init
         self.global_freeze = global_freeze
@@ -60,15 +60,15 @@ class ModelInit:
         for vocab in required_vocabs:
             embedding = self.embedding_init.get_embedding(vocab)  # type: Optional[torch.Tensor]
             if embedding is not None:
-                self.print.LOAD(vocab, '( require_grad =', not self.embedding_init.is_freezing(vocab), '), embedding with shape', embedding.shape,
-                                'and the expected shape is', self.depot.get_vocab_size(vocab, as_vocab=True), 'x', self.hidden_size)
+                self.print.LOAD_M_(vocab, '( require_grad =', not self.embedding_init.is_freezing(vocab), '), embedding with shape', embedding.shape,
+                                   'and the expected shape is', self.depot.get_vocab_size(vocab, as_vocab=True), 'x', self.hidden_size)
                 assert int(embedding.shape[0]) == self.depot.get_vocab_size(vocab, as_vocab=True)
                 # assert embedding.shape == (self.depot.get_vocab_size(vocab, as_vocab=True), self.hidden_size)
                 embedding_tables[vocab] = nn.Embedding.from_pretrained(embedding)
                 embedding_tables[vocab].weight.requires_grad = not self.embedding_init.is_freezing(vocab)
 
                 if int(embedding.shape[1]) != self.hidden_size:
-                    self.print.ALIGN('transform embedding from', int(embedding.shape[1]), 'to', self.hidden_size)
+                    self.print.ALIGN_M_('transform embedding from', int(embedding.shape[1]), 'to', self.hidden_size)
                     embedding_tables[vocab] = TransformEmbedding(
                         embedding_table=embedding_tables[vocab],
                         from_dim=int(embedding.shape[1]),
@@ -76,14 +76,14 @@ class ModelInit:
                     )
 
             else:
-                self.print.CREATE(vocab, '( require_grad =', not self.global_freeze, '), embedding with shape', self.depot.get_vocab_size(vocab, as_vocab=True), 'x', self.hidden_size)
+                self.print.CREATE_M_(vocab, '( require_grad =', not self.global_freeze, '), embedding with shape', self.depot.get_vocab_size(vocab, as_vocab=True), 'x', self.hidden_size)
                 embedding_tables[vocab] = nn.Embedding(
                     num_embeddings=self.depot.get_vocab_size(vocab, as_vocab=True),
                     embedding_dim=self.hidden_size
                 )
                 embedding_tables[vocab].weight.requires_grad = not self.global_freeze
 
-        self.print.CREATE(self.dataset.special_id, 'embedding with shape', len(self.dataset.special_tokens), 'x', self.hidden_size)
+        self.print.CREATE_M_(self.dataset.special_id, 'embedding with shape', len(self.dataset.special_tokens), 'x', self.hidden_size)
         embedding_tables[self.dataset.special_id] = nn.Embedding(
             num_embeddings=len(self.dataset.special_tokens),
             embedding_dim=self.hidden_size

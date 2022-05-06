@@ -18,7 +18,6 @@ class BartInit(ModelInit):
         self.decoder_layers = decoder_layers
         self.decoder_attention_heads = decoder_attention_heads
 
-    @property
     def load_model_config(self):
         return BartConfig(
             vocab_size=1,

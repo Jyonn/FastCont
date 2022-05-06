@@ -8,10 +8,10 @@ from loader.init.bert_init import BertInit
 from loader.depot_filter import DepotFilter
 from loader.embedding_init import EmbeddingInit
 
-from loader.task_depot.mlm_task import MLMTask
-from loader.task_depot.non_task import NonTask
-from loader.task_depot.pretrain_depot import PretrainDepot
-from loader.task_depot.pretrain_task import PretrainTask
+from loader.task.bert.mlm_task import MLMTask
+from loader.task.non_task import NonTask
+from loader.task.pretrain_depot import PretrainDepot
+from loader.task.pretrain_task import PretrainTask
 
 from utils.splitter import Splitter
 from utils.smart_printer import printer
@@ -19,7 +19,7 @@ from utils.smart_printer import printer
 
 class AtomDepot:
     def __init__(self, project_args, sub_folder=None, filter_config=None):
-        self.print = printer.ATOM__DEPOT
+        self.print = printer.ATOM__DEPOT_Cblue_
 
         data_dir = project_args.store.data_dir
         if sub_folder:
@@ -44,7 +44,7 @@ class AtomDepot:
 
 class AtomTask:
     def __init__(self, project_exp):
-        self.print = printer.ATOM__TASK
+        self.print = printer.ATOM__TASK_Cblue_
         self.tasks = []
         self.applied_task_indexes = []
         for task in project_exp.tasks:
@@ -82,7 +82,7 @@ class Data:
         self.args = project_args
         self.exp = project_exp
         self.device = device
-        self.print = printer.DATA
+        self.print = printer.DATA_Cblue_
 
         atom_task = AtomTask(self.exp)
         self.tasks = atom_task.tasks
@@ -114,8 +114,6 @@ class Data:
 
         sample_set = None
         for mode, mode_config in self.args.data.split:
-            sample_pre_processor = eval(mode_config.sample_pre_processor or '0') or self.args.data.sample_pre_processor
-
             sample_set = BertDataset(
                 depot=self.depots[mode],
                 splitter=self.splitter,
@@ -123,7 +121,6 @@ class Data:
                 order=self.args.data.order,
                 append=self.args.data.append,
                 expand_tokens=atom_task.expand_tokens,
-                sample_pre_processor=sample_pre_processor,
                 add_sep_token=self.exp.policy.add_sep_token,
             )
             self.sets[mode] = sample_set

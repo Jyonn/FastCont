@@ -66,8 +66,6 @@ class MLMTask(PretrainTask):
 
         self.epoch_ratio = list(map(int, str(epoch_ratio).strip().split(' '))) if epoch_ratio else range(self.curriculum_steps + 1)
 
-        self.print = printer.MLM__TASK
-
     def start_epoch(self, current_epoch, total_epoch):
         self.print('start epoch', current_epoch, '/', total_epoch)
         index = round(current_epoch / (total_epoch - 1) * (len(self.epoch_ratio) - 1))

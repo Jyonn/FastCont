@@ -1,13 +1,7 @@
-from typing import Optional
-
-import torch
-from torch import nn
 from transformers import BertConfig
 
 from loader.dataset.bert_dataset import BertDataset
-from loader.embedding_init import EmbeddingInit
 from loader.init.model_init import ModelInit
-from utils.smart_printer import printer as print
 
 
 class BertInit(ModelInit):
@@ -25,7 +19,6 @@ class BertInit(ModelInit):
         self._embedding_tables = None
         self._bert_config = None
 
-    @property
     def load_model_config(self):
         assert isinstance(self.dataset, BertDataset)
 
