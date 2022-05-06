@@ -1,10 +1,11 @@
+
 import time
 from logging import warning
 
 from utils.logger import Logger
 
 
-class TimePrinter:
+class SmartPrinter:
     def __init__(self, logger: Logger = None):
         self.start_time = time.time()
         self.logger = logger
@@ -31,4 +32,4 @@ class TimePrinter:
         warning('%s %s' % (self.format_second(delta_time), string))
 
 
-printer = TimePrinter()
+printer = SmartPrinter()

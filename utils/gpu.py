@@ -2,6 +2,8 @@ import os
 
 import torch.cuda
 
+from utils.smart_printer import printer
+
 
 class GPU:
     @classmethod
@@ -25,15 +27,16 @@ class GPU:
     @classmethod
     def auto_choose(cls, torch_format=False):
         if not torch.cuda.is_available():
+            printer.GPU_C_('not support cuda')
             if torch_format:
-                print('Not support cuda and turn to CPU')
+                printer.GPU_C_('switch to CPU')
                 return "cpu"
             return -1
 
         gpus = cls.get_gpus()
         chosen_gpu = sorted(gpus, key=lambda d: d['memory.free'], reverse=True)[0]
-        print('Choose', chosen_gpu['index'], 'GPU with',
-              chosen_gpu['memory.free'], '/', chosen_gpu['memory.total'], 'MB')
+        printer.GPU('choose', chosen_gpu['index'], 'GPU with',
+                    chosen_gpu['memory.free'], '/', chosen_gpu['memory.total'], 'MB')
         if torch_format:
             return "cuda:" + str(chosen_gpu['index'])
         return int(chosen_gpu['index'])

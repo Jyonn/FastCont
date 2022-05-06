@@ -3,12 +3,12 @@ from typing import List
 
 from torch.utils.data import DataLoader
 
-from loader.bert_dataset import BertDataset
+from loader.dataset.model_dataset import ModelDataset
 from loader.task_depot.pretrain_task import PretrainTask
 
 
-class BertDataLoader(DataLoader):
-    def __init__(self, dataset: BertDataset, pretrain_tasks: List[PretrainTask], **kwargs):
+class ModelDataLoader(DataLoader):
+    def __init__(self, dataset: ModelDataset, pretrain_tasks: List[PretrainTask], **kwargs):
         super().__init__(
             dataset=dataset,
             **kwargs

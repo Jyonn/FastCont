@@ -2,16 +2,17 @@ from typing import Dict
 
 from torch import nn
 
-from loader.bert_dataset import BertDataset
-from loader.bert_init import BertInit
+from loader.dataset.model_dataset import ModelDataset
+from loader.init.model_init import ModelInit
 from loader.task_depot.pretrain_task import PretrainTask
-from utils.time_printer import printer as print
+from utils.smart_printer import printer
 
 
 class PretrainDepot:
-    def __init__(self, dataset: BertDataset, bert_init: BertInit, device):
+    def __init__(self, dataset: ModelDataset, model_init: ModelInit, device):
+        self.print = printer.PT__DEPOT
         self.dataset = dataset
-        self.bert_init = bert_init
+        self.bert_init = model_init
         self.device = device
 
         self.depot = dict()  # type: Dict[str, PretrainTask]
@@ -21,7 +22,7 @@ class PretrainDepot:
             self.depot[task.name] = task
             task.init(
                 dataset=self.dataset,
-                bert_init=self.bert_init,
+                model_init=self.bert_init,
                 device=self.device,
             )
         return self
@@ -31,7 +32,7 @@ class PretrainDepot:
 
     def get_extra_modules(self):
         extra_modules = dict()
-        print('[CREATE extra modules]')
+        self.print('create extra modules')
         for task_name in self.depot:
             extra_module = self.depot[task_name].init_extra_module()
             extra_modules[task_name] = extra_module

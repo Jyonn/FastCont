@@ -3,12 +3,9 @@ from typing import Dict, Optional
 import torch
 from UniTok import UniDep
 from torch import nn
-from utils.transformers_adaptor import BertOutput
 
-from loader.bert_init import BertInit
-from loader.bert_dataset import BertDataset
-
-from utils.time_printer import printer as print
+from loader.dataset.model_dataset import ModelDataset
+from loader.init.model_init import ModelInit
 
 
 class TaskLoss:
@@ -22,18 +19,29 @@ class TaskLoss:
 class PretrainTask:
     def __init__(self, name):
         self.name = name
-        self.dataset = None  # type: Optional[BertDataset]
+        self.dataset = None  # type: Optional[ModelDataset]
         self.depot = None  # type: Optional[UniDep]
-        self.bert_init = None  # type: Optional[BertInit]
+        self.model_init = None  # type: Optional[ModelInit]
         self.device = None
 
-        self.extra_module = None  # type: Optional[nn.ModuleDict]
+        self._extra_module = None  # type: Optional[nn.ModuleDict]
         self.is_training = True
         self.is_validating = False
         self.is_testing = False
 
+    """
+    Display
+    """
+
     def __str__(self):
         return self.name
+
+    def __repr__(self):
+        return str(self)
+
+    """
+    Task mode
+    """
 
     def test(self):
         self.is_testing = True
@@ -50,38 +58,70 @@ class PretrainTask:
     def start_epoch(self, current_epoch, total_epoch):
         return
 
+    """
+    Init
+    """
+
     @staticmethod
     def get_expand_tokens():
         return []
 
-    def init(self, dataset: BertDataset, bert_init: BertInit, device):
+    def init(self, dataset: ModelDataset, model_init: ModelInit, device):
         self.dataset = dataset
         self.depot = dataset.depot
-        self.bert_init = bert_init
+        self.model_init = model_init
         self.device = device
 
+    """
+    Extra module
+    """
+
+    @property
+    def extra_module(self):
+        if self._extra_module:
+            return self._extra_module
+        self._extra_module = self.init_extra_module()
+        return self._extra_module
+
     def init_extra_module(self):
-        self.extra_module = self._init_extra_module()
-        return self.extra_module
+        raise NotImplementedError
 
     def rebuild_batch(self, batch):
         raise NotImplementedError
 
-    def _init_extra_module(self):
-        raise NotImplementedError
+    """
+    Inject dataset
+    """
 
+    # noinspection PyMethodMayBeStatic
+    def dataset_injector(self, sample):
+        return sample
+
+    """
+    Embedding
+    """
+
+    # noinspection PyMethodMayBeStatic
     def _get_special_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
         return table(matrix)
 
+    # noinspection PyMethodMayBeStatic
     def _get_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
-        raise NotImplementedError
+        return table(matrix)
 
-    def get_embedding(self, batch, table_dict: Dict[str, nn.Embedding], embedding_size):
-        input_ids = batch['input_ids'].to(self.device)  # type: torch.Tensor
+    def get_embedding(
+        self,
+        batch,
+        table_dict: Dict[str, nn.Embedding],
+        embedding_size: int,
+        input_ids_key='input_ids',
+        col_mask_key='col_mask'
+    ):
+        input_ids = batch[input_ids_key].to(self.device)  # type: torch.Tensor
         input_embeds = torch.zeros(*input_ids.shape, embedding_size, dtype=torch.float).to(self.device)
 
-        for col_name in batch['col_mask']:
-            col_mask = batch['col_mask'][col_name].to(self.device)  # type: torch.Tensor
+        for col_name in batch[col_mask_key]:
+            col_mask = batch[col_mask_key][col_name].to(self.device)  # type: torch.Tensor
             matrix = torch.mul(input_ids, col_mask)
 
             if col_name == self.dataset.special_id:
@@ -96,7 +136,7 @@ class PretrainTask:
 
         return input_embeds
 
-    def produce_output(self, bert_output: BertOutput, **kwargs):
+    def produce_output(self, model_output, **kwargs):
         raise NotImplementedError
 
     def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:

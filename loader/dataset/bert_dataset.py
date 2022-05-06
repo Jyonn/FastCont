@@ -2,12 +2,11 @@ import numpy as np
 import torch
 from UniTok import UniDep
 
-from torch.utils.data import Dataset
-
+from loader.dataset.model_dataset import ModelDataset
 from utils.splitter import Splitter
 
 
-class BertDataset(Dataset):
+class BertDataset(ModelDataset):
     def __init__(
             self,
             depot: UniDep,
@@ -16,11 +15,9 @@ class BertDataset(Dataset):
             order=None,
             append=None,
             expand_tokens=None,
-            sample_pre_processor=None,
             add_sep_token=True,
     ):
         self.depot = depot
-        self.sample_pre_processor = sample_pre_processor
 
         self.max_sequence = 1  # [CLS]
         self.token_types = 0
@@ -60,7 +57,6 @@ class BertDataset(Dataset):
             if 'max_length' in self.col_info[col_name]:
                 raise ValueError('column {} contains a list, only single-token column is allowed in append')
 
-        self.special_id = '__special'
         self.special_tokens = list(range(3 + len(self.expand_tokens)))
         self.PAD, self.CLS, self.SEP, *token_ids = self.special_tokens
 
@@ -80,39 +76,7 @@ class BertDataset(Dataset):
     def pad(self, sequence: list):
         return sequence + [self.PAD] * (self.max_sequence - len(sequence))
 
-    def get_pad_sample(self):
-        return self.pack_sample(0)
-
-    def pack_random_sample(self):
-        return self.pack_sample(np.random.randint(len(self.depot)))
-
-    def get_random_sample(self):
-        return self.depot[np.random.randint(len(self.depot))]
-
-    def get_memory_bank(self, bank_size):
-        memory_bank = []
-        for _ in range(bank_size):
-            memory_bank.append(self.pack_random_sample())
-        return memory_bank
-
-    def pack_sample(self, index):
-        sample = self.depot[index]
-        return self.build_bert_format_data(sample)
-
-    def pack_random_sample_with_unaligned_views(self):
-        sample = self.get_random_sample()
-        random_sample = self.get_random_sample()
-        keys = list(random_sample.keys())
-        np.random.shuffle(keys)
-        unaligned_key_count = np.random.randint(0, min(len(keys) - 1, 2))
-        for key_index in keys[:unaligned_key_count]:
-            sample[keys[key_index]] = random_sample[keys[key_index]]
-        return self.build_bert_format_data(sample)
-
-    def build_bert_format_data(self, sample):
-        if self.sample_pre_processor:
-            sample = self.sample_pre_processor(sample)
-
+    def build_format_data(self, sample):
         col_mask = dict()
         input_ids = [self.CLS]
         segment_ids = [0]

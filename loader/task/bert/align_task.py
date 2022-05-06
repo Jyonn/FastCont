@@ -5,9 +5,8 @@ from torch import nn
 from transformers import BertConfig
 from utils.transformers_adaptor import BertOutput
 
-from loader.task_depot.pretrain_task import PretrainTask, TaskLoss
+from loader.task.pretrain_task import PretrainTask, TaskLoss
 from utils.dictifier import Dictifier
-from utils.time_printer import printer as print
 
 
 class ClassificationModule(nn.Module):
@@ -51,15 +50,11 @@ class AlignTask(PretrainTask):
             rebuilt_batch.append(batch)
         return self.dictifier(rebuilt_batch)
 
-    def _init_extra_module(self):
-        print('[IN ALIGN TASK]')
-        return ClassificationModule(self.bert_init.bert_config, 2)
+    def init_extra_module(self):
+        return ClassificationModule(self.model_init.model_config, 2)
 
-    def _get_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
-        return table(matrix)
-
-    def produce_output(self, bert_output: BertOutput, **kwargs):
-        return bert_output.last_hidden_state
+    def produce_output(self, model_output: BertOutput, **kwargs):
+        return model_output.last_hidden_state
 
     def calculate_loss(self, batch, output, **kwargs):
         total_loss = torch.tensor(0, dtype=torch.float).to(self.device)

@@ -3,8 +3,7 @@ from torch import nn
 from transformers import BertConfig
 from utils.transformers_adaptor import BertOutput
 
-from loader.task_depot.pretrain_task import PretrainTask, TaskLoss
-from utils.time_printer import printer as print
+from loader.task.pretrain_task import PretrainTask, TaskLoss
 
 
 class ClassificationModule(nn.Module):
@@ -36,17 +35,13 @@ class CategorizeTask(PretrainTask):
     def rebuild_batch(self, batch):
         return batch
 
-    def _init_extra_module(self):
-        print('[IN CATEGORIZE TASK]')
+    def init_extra_module(self):
         vocab = self.depot.get_vocab(self.cat_col)
         vocab_size = self.depot.get_vocab_size(vocab, as_vocab=True)
-        return ClassificationModule(self.bert_init.bert_config, vocab_size)
+        return ClassificationModule(self.model_init.model_config, vocab_size)
 
-    def _get_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
-        return table(matrix)
-
-    def produce_output(self, bert_output: BertOutput, **kwargs):
-        return bert_output.last_hidden_state
+    def produce_output(self, model_output: BertOutput, **kwargs):
+        return model_output.last_hidden_state
 
     def calculate_loss(self, batch, output, **kwargs):
         cat_labels = batch['append_info'][self.cat_col].to(self.device)  # type: torch.Tensor

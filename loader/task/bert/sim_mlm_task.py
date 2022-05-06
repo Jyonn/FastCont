@@ -8,8 +8,8 @@ from transformers import BertConfig
 from transformers.activations import ACT2FN
 from utils.transformers_adaptor import BertOutput
 
-from loader.task_depot.pretrain_task import PretrainTask, TaskLoss
-from utils.time_printer import printer as print
+from loader.task.pretrain_task import PretrainTask, TaskLoss
+from utils.smart_printer import printer
 
 
 class ClassificationModule(nn.Module):
@@ -57,6 +57,8 @@ class SimMLMTask(PretrainTask):
         self.apply_cols = apply_cols  # type: list
 
         self.loss_fct = nn.CrossEntropyLoss()
+
+        self.print = printer.SIM_MLM__TASK
 
     def get_expand_tokens(self):
         return ['SIM-MASK_{col}']
@@ -112,10 +114,9 @@ class SimMLMTask(PretrainTask):
         batch['mask_labels'] = mask_labels
         return batch
 
-    def _init_extra_module(self):
+    def init_extra_module(self):
         module_dict = dict()
-        print('[IN SimMLM TASK]')
-        embedding_tables = self.bert_init.get_embedding_tables()
+        embedding_tables = self.model_init.get_embedding_tables()
 
         for col_name in self.dataset.order:
             if self.apply_cols and col_name not in self.apply_cols:
@@ -123,18 +124,15 @@ class SimMLMTask(PretrainTask):
 
             vocab = self.depot.col_info.d[col_name].vocab
             if vocab in module_dict:
-                print('Escape create modules for', col_name, '(', vocab, ')')
+                self.print('Escape create modules for', col_name, '(', vocab, ')')
                 continue
 
-            module_dict[vocab] = ClassificationModule(self.bert_init.bert_config, embedding_tables[vocab])
-            print('Classification Module for', col_name, '(', vocab, ')')
+            module_dict[vocab] = ClassificationModule(self.model_init.model_config, embedding_tables[vocab])
+            self.print('Classification Module for', col_name, '(', vocab, ')')
         return nn.ModuleDict(module_dict)
 
-    def _get_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
-        return table(matrix)
-
-    def produce_output(self, bert_output: BertOutput, **kwargs):
-        last_hidden_state = bert_output.last_hidden_state
+    def produce_output(self, model_output: BertOutput, **kwargs):
+        last_hidden_state = model_output.last_hidden_state
 
         if self.only_mask_last:
             return last_hidden_state

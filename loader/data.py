@@ -2,24 +2,25 @@ import os
 
 from UniTok import UniDep
 
-from loader.bert_dataloader import BertDataLoader
-from loader.bert_dataset import BertDataset
-from loader.bert_init import BertInit
+from loader.model_dataloader import ModelDataLoader
+from loader.dataset.bert_dataset import BertDataset
+from loader.init.bert_init import BertInit
 from loader.depot_filter import DepotFilter
 from loader.embedding_init import EmbeddingInit
-from loader.sample_processor import spotify_test_sample_processor
-from loader.task_depot.l2r_task import L2RTask
+
 from loader.task_depot.mlm_task import MLMTask
 from loader.task_depot.non_task import NonTask
 from loader.task_depot.pretrain_depot import PretrainDepot
 from loader.task_depot.pretrain_task import PretrainTask
-from loader.task_depot.sim_mlm_task import SimMLMTask
+
 from utils.splitter import Splitter
-from utils.time_printer import printer as print
+from utils.smart_printer import printer
 
 
 class AtomDepot:
     def __init__(self, project_args, sub_folder=None, filter_config=None):
+        self.print = printer.ATOM__DEPOT
+
         data_dir = project_args.store.data_dir
         if sub_folder:
             data_dir = os.path.join(data_dir, sub_folder)
@@ -29,29 +30,26 @@ class AtomDepot:
             self.depot.union(*[UniDep(depot) for depot in project_args.store.union])
 
         if filter_config:
-            print('[ATOM DEPOT] origin size:', self.depot.sample_size)
+            self.print('origin size:', self.depot.sample_size)
             for col, filter_list in filter_config:
                 for filtering in filter_list:
-                    print('[ATOM DEPOT] filtering by', filtering, 'on column', col)
+                    self.print('filtering by', filtering, 'on column', col)
                     if filtering == 'remove_empty':
                         filtering = lambda x: x
                     else:
                         filtering = eval('lambda x:' + filtering)
                     self.depot.customize(col, filtering)
-                    print('[ATOM DEPOT] remaining', self.depot.sample_size, 'samples')
+                    self.print('remaining', self.depot.sample_size, 'samples')
 
 
 class AtomTask:
     def __init__(self, project_exp):
+        self.print = printer.ATOM__TASK
         self.tasks = []
         self.applied_task_indexes = []
         for task in project_exp.tasks:
-            if task.name == 'sim-mlm':
-                t = SimMLMTask
-            elif task.name == 'mlm':
+            if task.name == 'mlm':
                 t = MLMTask
-            elif task.name == 'l2r':
-                t = L2RTask
             elif task.name == 'non':
                 t = NonTask
             else:
@@ -63,12 +61,12 @@ class AtomTask:
             self.tasks.append(t(**params))
             if not task.only_initialization:
                 self.applied_task_indexes.append(len(self.tasks) - 1)
-            print('[ATOM TASK]', task.name, 'params:', params)
+            self.print(task.name, 'params:', params)
 
         self.expand_tokens = []
         for task in self.tasks:
             self.expand_tokens.extend(task.get_expand_tokens())
-        print('[ATOM TASK] expand tokens:', self.expand_tokens)
+        self.print('expand tokens:', self.expand_tokens)
 
 
 class Data:
@@ -84,6 +82,7 @@ class Data:
         self.args = project_args
         self.exp = project_exp
         self.device = device
+        self.print = printer.DATA
 
         atom_task = AtomTask(self.exp)
         self.tasks = atom_task.tasks
@@ -141,26 +140,26 @@ class Data:
             dataset=sample_set,
             embedding_init=self.embedding_init,
             global_freeze=self.exp.freeze_emb,
-            **self.args.bert_config.d,
+            **self.args.model_config.d,
         )
 
         self.pretrain_depot = PretrainDepot(
             dataset=sample_set,
-            bert_init=self.bert_init,
+            model_init=self.bert_init,
             device=self.device,
         ).register(*self.tasks)
 
         self.tasks = [self.tasks[index] for index in atom_task.applied_task_indexes]
-        print('[DATA] after task filtering')
+        self.print('after task filtering')
         for task in self.tasks:
-            print('[DATA]', task.name)
+            self.print(task.name)
 
     def get_loader(self, mode, *tasks: PretrainTask):
         shuffle = self.args.data.split[mode].shuffle  # NONE, FALSE, TRUE
         if shuffle not in [True, False]:  # CAN NOT USE "IF SHUFFLE"
             shuffle = self.args.data.shuffle or False
 
-        return BertDataLoader(
+        return ModelDataLoader(
             dataset=self.sets[mode],
             pretrain_tasks=list(tasks),
             shuffle=shuffle,

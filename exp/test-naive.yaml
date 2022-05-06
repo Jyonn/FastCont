@@ -13,8 +13,8 @@ load:
   load_model_only: false
   relax_load: false
   super_load: true
-  ckpt_base_path: naive-mlm-e20
-  epochs: "map(lambda x: 2 * x + 1, list(range(10)))"
+  ckpt_base_path: naive-mlm
+  epochs: "map(lambda x: 2 * x + 1, list(range(25)))"
 policy:
   add_sep_token: true
   pin_memory: true

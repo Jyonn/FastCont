@@ -7,8 +7,8 @@ from transformers import BertConfig
 from transformers.activations import ACT2FN
 from utils.transformers_adaptor import BertOutput
 
-from loader.task_depot.pretrain_task import PretrainTask, TaskLoss
-from utils.time_printer import printer as print
+from loader.task.pretrain_task import PretrainTask, TaskLoss
+from utils.smart_printer import printer
 
 
 class ClassificationModule(nn.Module):
@@ -84,19 +84,15 @@ class L2RTask(PretrainTask):
         batch['attention_mask'] = attention_mask
         return batch
 
-    def _init_extra_module(self):
-        print('[IN L2R TASK]')
+    def init_extra_module(self):
         vocab = self.depot.col_info.d[self.apply_col].vocab
         vocab_size = self.depot.get_vocab_size(vocab, as_vocab=True)
 
-        print('Classification Module for', self.apply_col, '(', vocab, ')', 'with vocab size', vocab_size)
-        return ClassificationModule(self.bert_init.bert_config)
+        printer.L2R__TASK('Classification Module for', self.apply_col, '(', vocab, ')', 'with vocab size', vocab_size)
+        return ClassificationModule(self.model_init.model_config)
 
-    def _get_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
-        return table(matrix)
-
-    def produce_output(self, bert_output: BertOutput, **kwargs):
-        last_hidden_state = bert_output.last_hidden_state
+    def produce_output(self, model_output: BertOutput, **kwargs):
+        last_hidden_state = model_output.last_hidden_state
         return self.extra_module(last_hidden_state)
 
     def calculate_loss(self, batch, output, **kwargs):

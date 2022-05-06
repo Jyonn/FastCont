@@ -4,14 +4,15 @@ from typing import Dict, Optional
 
 import numpy as np
 import torch
-from UniTok import UniDep
 from torch import nn
 from transformers import BertConfig
 from transformers.activations import ACT2FN
+
+from loader.dataset.bert_dataset import BertDataset
 from utils.transformers_adaptor import BertOutput
 
-from loader.task_depot.pretrain_task import PretrainTask, TaskLoss
-from utils.time_printer import printer as print
+from loader.task.pretrain_task import PretrainTask, TaskLoss
+from utils.smart_printer import printer
 
 
 class ClassificationModule(nn.Module):
@@ -65,13 +66,15 @@ class MLMTask(PretrainTask):
 
         self.epoch_ratio = list(map(int, str(epoch_ratio).strip().split(' '))) if epoch_ratio else range(self.curriculum_steps + 1)
 
+        self.print = printer.MLM__TASK
+
     def start_epoch(self, current_epoch, total_epoch):
-        print('[MLM] start epoch', current_epoch, '/', total_epoch)
+        self.print('start epoch', current_epoch, '/', total_epoch)
         index = round(current_epoch / (total_epoch - 1) * (len(self.epoch_ratio) - 1))
         self.set_curriculum_step(self.epoch_ratio[index])
 
     def set_curriculum_step(self, step):
-        print('[MLM] move step to', step)
+        self.print('move step to', step)
         self.current_curriculum_step = step
         self.mask_ratio = self.current_curriculum_step / self.curriculum_steps
 
@@ -96,6 +99,8 @@ class MLMTask(PretrainTask):
         return tok, self.loss_pad, False
 
     def rebuild_batch(self, batch):
+        assert isinstance(self.dataset, BertDataset)
+
         input_ids = batch['input_ids']  # type: torch.Tensor
         col_mask = batch['col_mask']  # type: Dict[str, torch.Tensor]
         batch_size = int(input_ids.shape[0])
@@ -139,24 +144,20 @@ class MLMTask(PretrainTask):
         batch['mask_labels'] = mask_labels
         return batch
 
-    def _init_extra_module(self):
+    def init_extra_module(self):
         module_dict = dict()
-        print('[IN MLM TASK]')
         for col_name in self.apply_cols:
             vocab = self.depot.col_info.d[col_name].vocab
             if vocab in module_dict:
-                print('Escape create modules for', col_name, '(', vocab, ')')
+                self.print('Escape create modules for', col_name, '(', vocab, ')')
                 continue
             vocab_size = self.depot.get_vocab_size(vocab, as_vocab=True)
-            module_dict[vocab] = ClassificationModule(self.bert_init.bert_config, vocab_size)
-            print('Classification Module for', col_name, '(', vocab, ')', 'with vocab size', vocab_size)
+            module_dict[vocab] = ClassificationModule(self.model_init.model_config, vocab_size)
+            self.print('Classification Module for', col_name, '(', vocab, ')', 'with vocab size', vocab_size)
         return nn.ModuleDict(module_dict)
 
-    def _get_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
-        return table(matrix)
-
-    def produce_output(self, bert_output: BertOutput, **kwargs):
-        last_hidden_state = bert_output.last_hidden_state
+    def produce_output(self, model_output: BertOutput, **kwargs):
+        last_hidden_state = model_output.last_hidden_state
         output_dict = dict()
         for col_name in self.apply_cols:
             vocab = self.depot.col_info.d[col_name].vocab

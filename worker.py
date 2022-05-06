@@ -16,7 +16,7 @@ from model.auto_bert import AutoBert
 from utils.config_initializer import init_config
 from utils.gpu import GPU
 from utils.random_seed import seeding
-from utils.time_printer import printer as print
+from utils.smart_printer import SmartPrinter, printer as print
 from utils.logger import Logger
 
 
@@ -25,8 +25,8 @@ class Worker:
         self.args = project_args
         self.exp = project_exp
 
-        self.logging = Logger(self.args.store.log_path, print)
-        print.logger = self.logging
+        self.logging = Logger(self.args.store.log_path)
+        SmartPrinter.logger = self.logging
 
         self.device = self.get_device(cuda)
 
@@ -243,7 +243,7 @@ class Worker:
         # )
         features = torch.zeros(
             self.data.depot.sample_size,
-            self.args.bert_config.hidden_size,
+            self.args.model_config.hidden_size,
             dtype=torch.float
         ).to(self.device)
 
@@ -253,8 +253,8 @@ class Worker:
                 with torch.no_grad():
                     task_output = self.model(batch=batch, task=self.data.non_task)  # type: BertOutput
                     task_output = task_output.last_hidden_state.detach()  # type: torch.Tensor  # [B, S, D]
-                    attention_sum = batch['attention_mask'].to(self.device).sum(-1).unsqueeze(-1).repeat(1, 1, self.args.bert_config.hidden_size)
-                    attention_mask = batch['attention_mask'].to(self.device).unsqueeze(-1).repeat(1, 1, self.args.bert_config.hidden_size)
+                    attention_sum = batch['attention_mask'].to(self.device).sum(-1).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
+                    attention_mask = batch['attention_mask'].to(self.device).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
                     features[batch['append_info'][self.exp.save.key]] = (task_output * attention_mask).sum(1) / attention_sum
 
         save_path = os.path.join(self.args.store.ckpt_path, self.exp.save.feature_path)
