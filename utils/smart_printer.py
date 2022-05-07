@@ -36,6 +36,8 @@ class Bracket:
     DEFAULT = '['
     CLASS = '{'
     METHOD = '<'
+    DOT = '.'
+    POINT = '·'
 
 
 class Color:
@@ -156,12 +158,15 @@ class SmartPrinter:
             return prefix
 
         bracket = None
-        bracket_dict = dict(C=Bracket.CLASS, M=Bracket.METHOD, D=Bracket.DEFAULT)
+        bracket_dict = dict(C=Bracket.CLASS, M=Bracket.METHOD, D=Bracket.DEFAULT, P=Bracket.POINT)
         if custom[0] in bracket_dict:
             bracket = bracket_dict[custom[0]]
         if custom[0] in string.ascii_uppercase:
             custom = custom[1:]
         color = custom
+        color_dict = dict(r=Color.RED, g=Color.GREEN, b=Color.BLUE, c=Color.CYAN, m=Color.MAGENTA, w=Color.WHITE, y=Color.YELLOW)
+        if color in color_dict:
+            color = color_dict[color]
 
         return prefix, bracket, color
 
@@ -196,14 +201,15 @@ class SmartPrinter:
 
 
 TimePrefix.init()
-SmartPrinter.init(prefix_color=Color.GREEN)
-printer = SmartPrinter.create([TimePrefix.call])
+SmartPrinter.init()
+printer = SmartPrinter.create([(TimePrefix.call, Bracket.DEFAULT, Color.GREEN)])
 
 if __name__ == '__main__':
     printer(f'Smart Printer Activated at {datetime.datetime.now()}')
     printer[('wow', '·', Color.CYAN)]('hello')
-    printer.wow_Cyellow_.yes_magenta_('!')
-    printer.wow_Cyellow_.yes_magenta_('#')
+    printer.wow_Cy_.yes_m_('!')
+    printer.wow_Cy_.yes_m_('#')
+    printer.wow_Cy_.yes_m_.hungry('I am so hungry')
     # printer.c('x')
     # printer.c('y')
     print(SmartPrinter.depot_k)

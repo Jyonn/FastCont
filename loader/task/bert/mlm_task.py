@@ -11,8 +11,7 @@ from transformers.activations import ACT2FN
 from loader.dataset.bert_dataset import BertDataset
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.pretrain_task import PretrainTask, TaskLoss
-from utils.smart_printer import printer
+from loader.task.base_task import BaseTask, TaskLoss
 
 
 class ClassificationModule(nn.Module):
@@ -34,10 +33,14 @@ class ClassificationModule(nn.Module):
         return hidden_states
 
 
-class MLMTask(PretrainTask):
+class MLMTask(BaseTask):
     """
     MLM task for ListCont
     """
+
+    name = 'mlm'
+    dataset: BertDataset
+
     def __init__(
             self,
             select_prob=0.15,
@@ -48,7 +51,7 @@ class MLMTask(PretrainTask):
             epoch_ratio: Optional[str] = None,
             uni_mask: bool = False,
     ):
-        super(MLMTask, self).__init__(name='mlm')
+        super(MLMTask, self).__init__()
         self.select_prob = select_prob
         self.mask_prob = mask_prob
         self.random_prob = random_prob

@@ -2,16 +2,16 @@ import argparse
 import os
 from typing import Dict, Union
 
-import numpy as np
+# import numpy as np
 import torch
 from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
-from utils.transformers_adaptor import BertOutput
+# from utils.transformers_adaptor import BertOutput
 
 from loader.data import Data
 from loader.task.bert.mlm_task import MLMTask
-from loader.task.pretrain_task import PretrainTask
+from loader.task.base_task import BaseTask
 from model.auto_bert import AutoBert
 from utils.config_initializer import init_config
 from utils.gpu import GPU
@@ -41,8 +41,8 @@ class Worker:
 
         self.auto_model = AutoBert(
             device=self.device,
-            model_init=self.data.bert_init,
-            pretrain_depot=self.data.pretrain_depot,
+            model_init=self.data.model_init,
+            pretrain_depot=self.data.task_manager,
         )
 
         self.auto_model.to(self.device)
@@ -102,7 +102,7 @@ class Worker:
         if self.exp.load.load_ckpt is not None:
             self._attempt_loading(self.exp.load.load_ckpt)
 
-    def log_interval(self, epoch, step, task: PretrainTask, loss):
+    def log_interval(self, epoch, step, task: BaseTask, loss):
         self.print(
             "epoch {}, step {}, "
             "task {}, "
@@ -113,7 +113,7 @@ class Worker:
                 loss.item()
             ))
 
-    def train(self, *tasks: PretrainTask):
+    def train(self, *tasks: BaseTask):
         self.print('Start Training')
 
         train_steps = len(self.data.train_set) // self.exp.policy.batch_size
@@ -169,7 +169,7 @@ class Worker:
                 torch.save(state_dict, epoch_path)
         self.print('Training Ended')
 
-    def dev(self, task: PretrainTask, steps=None, d_loader=None):
+    def dev(self, task: BaseTask, steps=None, d_loader=None):
         avg_loss = torch.tensor(.0).to(self.device)
         self.auto_model.eval()
         task.eval()
@@ -191,7 +191,7 @@ class Worker:
 
         return avg_loss.item()
 
-    def test(self, task: PretrainTask):
+    def test(self, task: BaseTask):
         assert isinstance(task, MLMTask)
         self.auto_model.eval()
         task.test()
@@ -236,30 +236,30 @@ class Worker:
             self.print('HR@%4d: %.4f' % (hit_rate, hit_rate_dict[str(hit_rate)]))
             self.print('OR@%4d: %.4f' % (hit_rate, overlap_rate_dict[str(hit_rate)]))
 
-    def export(self):
-        # bert_aggregator = BertAggregator(
-        #     layers=self.exp.save.layers,
-        #     layer_strategy=self.exp.save.layer_strategy,
-        #     union_strategy=self.exp.save.union_strategy,
-        # )
-        features = torch.zeros(
-            self.data.depot.sample_size,
-            self.args.model_config.hidden_size,
-            dtype=torch.float
-        ).to(self.device)
-
-        for loader in [self.data.get_loader(self.data.TRAIN, self.data.non_task),
-                       self.data.get_loader(self.data.DEV, self.data.non_task)]:
-            for batch in tqdm(loader):
-                with torch.no_grad():
-                    task_output = self.auto_model(batch=batch, task=self.data.non_task)  # type: BertOutput
-                    task_output = task_output.last_hidden_state.detach()  # type: torch.Tensor  # [B, S, D]
-                    attention_sum = batch['attention_mask'].to(self.device).sum(-1).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
-                    attention_mask = batch['attention_mask'].to(self.device).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
-                    features[batch['append_info'][self.exp.save.key]] = (task_output * attention_mask).sum(1) / attention_sum
-
-        save_path = os.path.join(self.args.store.ckpt_path, self.exp.save.feature_path)
-        np.save(save_path, features.cpu().numpy(), allow_pickle=False)
+    # def export(self):
+    #     # bert_aggregator = BertAggregator(
+    #     #     layers=self.exp.save.layers,
+    #     #     layer_strategy=self.exp.save.layer_strategy,
+    #     #     union_strategy=self.exp.save.union_strategy,
+    #     # )
+    #     features = torch.zeros(
+    #         self.data.depot.sample_size,
+    #         self.args.model_config.hidden_size,
+    #         dtype=torch.float
+    #     ).to(self.device)
+    #
+    #     for loader in [self.data.get_loader(self.data.TRAIN, self.data.non_task),
+    #                    self.data.get_loader(self.data.DEV, self.data.non_task)]:
+    #         for batch in tqdm(loader):
+    #             with torch.no_grad():
+    #                 task_output = self.auto_model(batch=batch, task=self.data.non_task)  # type: BertOutput
+    #                 task_output = task_output.last_hidden_state.detach()  # type: torch.Tensor  # [B, S, D]
+    #                 attention_sum = batch['attention_mask'].to(self.device).sum(-1).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
+    #                 attention_mask = batch['attention_mask'].to(self.device).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
+    #                 features[batch['append_info'][self.exp.save.key]] = (task_output * attention_mask).sum(1) / attention_sum
+    #
+    #     save_path = os.path.join(self.args.store.ckpt_path, self.exp.save.feature_path)
+    #     np.save(save_path, features.cpu().numpy(), allow_pickle=False)
 
     def run(self):
         # tasks = [self.data.pretrain_depot[task.name] for task in self.exp.tasks]
@@ -280,8 +280,8 @@ class Worker:
             display_value = tuple(display_value)
             display_string = display_string.format(*display_value)
             self.print(display_string)
-        elif self.exp.mode == 'export':
-            self.export()
+        # elif self.exp.mode == 'export':
+        #     self.export()
         elif self.exp.mode == 'test':
             if not self.exp.load.super_load:
                 for task in tasks:

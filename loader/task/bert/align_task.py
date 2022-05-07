@@ -5,7 +5,7 @@ from torch import nn
 from transformers import BertConfig
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.pretrain_task import PretrainTask, TaskLoss
+from loader.task.base_task import BaseTask, TaskLoss
 from utils.dictifier import Dictifier
 
 
@@ -28,7 +28,7 @@ class ClassificationModule(nn.Module):
         return pooled_output
 
 
-class AlignTask(PretrainTask):
+class AlignTask(BaseTask):
     def __init__(self):
         super().__init__(name='align')
 

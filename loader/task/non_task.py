@@ -1,7 +1,9 @@
-from loader.task.pretrain_task import PretrainTask
+from loader.task.base_task import BaseTask
 
 
-class NonTask(PretrainTask):
+class NonTask(BaseTask):
+    name = 'non'
+
     def _init_extra_module(self):
         return None
 
@@ -16,6 +18,3 @@ class NonTask(PretrainTask):
 
     def calculate_loss(self, batch, output, **kwargs):
         pass
-
-    def __init__(self):
-        super(NonTask, self).__init__(name='non')

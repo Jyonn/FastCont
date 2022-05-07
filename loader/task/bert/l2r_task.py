@@ -5,9 +5,11 @@ import torch
 from torch import nn
 from transformers import BertConfig
 from transformers.activations import ACT2FN
+
+from loader.dataset.bert_dataset import BertDataset
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.pretrain_task import PretrainTask, TaskLoss
+from loader.task.base_task import BaseTask, TaskLoss
 from utils.smart_printer import printer
 
 
@@ -30,7 +32,9 @@ class ClassificationModule(nn.Module):
         return hidden_states
 
 
-class L2RTask(PretrainTask):
+class L2RTask(BaseTask):
+    dataset: BertDataset
+
     def __init__(
             self,
             apply_col,

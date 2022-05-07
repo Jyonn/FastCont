@@ -1,7 +1,7 @@
 import os
 
 import yaml
-from utils.smart_classify import SmartClassify as Classify
+from UniTok.classify import Classify
 
 from utils.formatter import Formatter
 
@@ -13,7 +13,10 @@ def init_config(config_path, exp_path):
     exp = yaml.safe_load(open(exp_path))
     exp = Classify(exp)
 
+    exp.model = exp.model.upper()
+
     formatter = Formatter(
+        model=exp.model,
         dataset=config.dataset,
         hidden_size=config.bert_config.hidden_size,
         num_hidden_layers=config.bert_config.num_hidden_layers,

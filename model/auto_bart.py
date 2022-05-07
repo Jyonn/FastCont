@@ -3,7 +3,7 @@ from typing import Union
 import torch
 from transformers.models.bart import BartModel
 
-from loader.task_depot.pretrain_task import PretrainTask
+from loader.task.base_task import BaseTask
 from model.auto_model import AutoModel
 
 
@@ -13,9 +13,9 @@ class AutoBart(AutoModel):
     def __init__(self, **kwargs):
         super(AutoBart, self).__init__(model_class=BartModel, **kwargs)
 
-    def forward(self, batch, task: Union[str, PretrainTask]):
+    def forward(self, batch, task: Union[str, BaseTask]):
         if isinstance(task, str):
-            task = self.pretrain_depot[task]
+            task = self.task_manager[task]
 
         encoder_attention_mask = batch['encoder_attention_mask'].to(self.device)  # type: torch.Tensor # [B, S]
         decoder_attention_mask = batch['decoder_attention_mask'].to(self.device)  # type: torch.LongTensor # [B, S]

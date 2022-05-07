@@ -17,9 +17,10 @@ class TaskLoss:
         self.loss.backward()
 
 
-class PretrainTask:
-    def __init__(self, name):
-        self.name = name
+class BaseTask:
+    name: str
+
+    def __init__(self):
         self.dataset = None  # type: Optional[ModelDataset]
         self.depot = None  # type: Optional[UniDep]
         self.model_init = None  # type: Optional[ModelInit]

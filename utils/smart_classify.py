@@ -90,3 +90,4 @@ class SmartClassify:
 if __name__ == '__main__':
     c = SmartClassify(dict(a=1, b=dict(x='a', y=[3, [4, dict(y='l')], dict(z=1)])))
     print(c.b.y[1][1].y)
+    print(dict(**c))

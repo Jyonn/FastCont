@@ -3,7 +3,7 @@ from torch import nn
 from transformers import BertConfig
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.pretrain_task import PretrainTask, TaskLoss
+from loader.task.base_task import BaseTask, TaskLoss
 
 
 class ClassificationModule(nn.Module):
@@ -25,7 +25,7 @@ class ClassificationModule(nn.Module):
         return pooled_output
 
 
-class CategorizeTask(PretrainTask):
+class CategorizeTask(BaseTask):
     def __init__(self, cat_col):
         super().__init__(name='categorize')
 

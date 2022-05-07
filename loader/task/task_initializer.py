@@ -4,20 +4,20 @@ from torch import nn
 
 from loader.dataset.model_dataset import ModelDataset
 from loader.init.model_init import ModelInit
-from loader.task_depot.pretrain_task import PretrainTask
+from loader.task.base_task import BaseTask
 from utils.smart_printer import printer
 
 
-class PretrainDepot:
+class TaskInitializer:
     def __init__(self, dataset: ModelDataset, model_init: ModelInit, device):
         self.print = printer.PT__DEPOT
         self.dataset = dataset
         self.bert_init = model_init
         self.device = device
 
-        self.depot = dict()  # type: Dict[str, PretrainTask]
+        self.depot = dict()  # type: Dict[str, BaseTask]
 
-    def register(self, *tasks: PretrainTask):
+    def register(self, *tasks: BaseTask):
         for task in tasks:
             self.depot[task.name] = task
             task.init(

@@ -1,0 +1,31 @@
+dataset: zhihu
+store:
+  data_has_split: true
+  data_dir: data/ListCont/{dataset}
+  save_dir: saving/{dataset}/{model}-L{num_hidden_layers}H{num_attention_heads}E{hidden_size}/
+data:
+  split:
+    train:
+      path: train
+    dev:
+      path: valid
+    test:
+      path: test
+  shuffle: true
+  filter:
+    train:
+      pred_items:
+        - len(x) >= 5
+set:
+  order:
+    - known_items
+    - pred_items
+  append:
+    - list_id
+    - user_id
+    - index
+model_config:
+  hidden_size: 64
+  num_hidden_layers: 2
+  num_attention_heads: 8
+embedding: []

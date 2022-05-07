@@ -3,19 +3,36 @@ from UniTok import UniDep
 
 from torch.utils.data import Dataset
 
+from utils.splitter import Splitter
+
 
 class ModelDataset(Dataset):
 
     depot: UniDep
 
-    order: list
-
     special_id = '__special_id'
     special_tokens: list
 
-    max_sequence: int
-
     injected_task: any = None
+
+    def __init__(
+            self,
+            depot: UniDep,
+            splitter: Splitter = None,
+            mode=None,
+     ):
+        self.depot = depot
+        self.col_info = self.depot.col_info
+        self.splitter = splitter
+        self.mode = mode
+
+        self.sample_size = self.depot.sample_size
+
+        if splitter is None:
+            self.split_range = (0, self.sample_size)
+        else:
+            self.split_range = splitter.divide(self.sample_size)[self.mode]
+            assert splitter.contains(mode)
 
     def inject_task(self, task):
         self.injected_task = task
@@ -56,7 +73,9 @@ class ModelDataset(Dataset):
         raise NotImplementedError
 
     def __getitem__(self, index):
-        raise NotImplementedError
+        index += self.split_range[0]
+        return self.pack_sample(index)
 
     def __len__(self):
-        raise NotImplementedError
+        mode_range = self.split_range
+        return mode_range[1] - mode_range[0]

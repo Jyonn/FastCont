@@ -1,0 +1,26 @@
+exp: naive-mlm
+mode: train
+freeze_emb: false
+tasks:
+  -
+    name: mlm
+    params:
+      curriculum_steps: 1
+      epoch_ratio: 0 1 1 1 1 1 1 1 1 1
+      uni_mask: true
+load:
+  load_ckpt: null
+  load_model_only: true
+  relax_load: false
+policy:
+  add_sep_token: true
+  pin_memory: true
+  epoch: 50
+  epoch_start: 0
+  lr: 0.0001
+  batch_size: 64
+  accumulate_batch: 16
+  device: gpu
+  n_warmup: 160
+  check_interval: 0
+  store_interval: 2
