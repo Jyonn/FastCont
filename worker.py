@@ -99,7 +99,7 @@ class Worker:
         self.print('Load optimizer and scheduler:', load_status)
 
     def attempt_loading(self):
-        if self.exp.load.load_ckpt is not None:
+        if self.exp.load.load_ckpt:
             self._attempt_loading(self.exp.load.load_ckpt)
 
     def log_interval(self, epoch, step, task: BaseTask, loss):
@@ -204,7 +204,7 @@ class Worker:
                 col_mask = mask_labels_col[task.pred_items]
 
                 for i_batch in range(len(indexes)):
-                    ground_truth = set(task.depot[indexes[i_batch]]['pred_items'])
+                    ground_truth = set(task.depot.pack_sample(indexes[i_batch])['pred_items'])
 
                     for hit_rate in self.exp.policy.hit_rates:
                         candidates_per_channel = max(hit_rate // len(ground_truth), 1)
