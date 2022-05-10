@@ -19,7 +19,7 @@ class AutoBert(AutoModel):
         segment_ids = batch['segment_ids'].to(self.device)  # type: torch.Tensor # [B, S]
 
         if isinstance(task, str):
-            task = self.task_manager[task]
+            task = self.task_initializer[task]
 
         input_embeds = task.get_embedding(
             batch=batch,

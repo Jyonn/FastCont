@@ -1,14 +1,14 @@
-exp: naive-mlm
-model: bert
+exp: curriculum-mlm-uni
+model: bart
 mode: train
 freeze_emb: false
 tasks:
   -
-    name: mlm
+    name: en-mlm
+  -
+    name: de-mlm
     params:
-      curriculum_steps: 1
-      epoch_ratio: 0 1 1 1 1 1 1 1 1 1
-      uni_mask: true
+      curriculum_steps: 10
 load:
   load_ckpt: null
   load_model_only: true
@@ -22,6 +22,6 @@ policy:
   batch_size: 64
   accumulate_batch: 16
   device: gpu
-  n_warmup: 160
-  check_interval: 0
-  store_interval: 2
+  n_warmup: 0
+  check_interval: -10
+  store_interval: 5

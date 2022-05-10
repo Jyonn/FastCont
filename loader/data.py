@@ -13,6 +13,8 @@ from loader.embedding_init import EmbeddingInit
 from loader.task.task_manager import TaskManager
 from loader.task.task_initializer import TaskInitializer
 from loader.task.base_task import BaseTask
+from model.auto_bart import AutoBart
+from model.auto_bert import AutoBert
 
 from utils.splitter import Splitter
 from utils.smart_printer import printer
@@ -37,12 +39,16 @@ class Data:
         self.device = device
         self.print = printer.DATA_Cblue_
 
+        self.print('Model', self.exp.model)
+
         if self.exp.model == self.BERT:
             self.dataset_class = BertDataset
             self.model_initializer = BertInit
+            self.model = AutoBert
         elif self.exp.model == self.BART:
             self.dataset_class = BartDataset
             self.model_initializer = BartInit
+            self.model = AutoBart
         else:
             raise ValueError(f'Unknown model [{self.exp.model}]')
 
@@ -77,7 +83,7 @@ class Data:
             **self.args.model_config.d,
         )
 
-        self.task_manager = TaskInitializer(
+        self.task_initializer = TaskInitializer(
             dataset=self.train_set,
             model_init=self.model_init,
             device=self.device,
@@ -111,16 +117,16 @@ class Data:
             depot.union(*[UniDep(d) for d in self.args.store.union])
 
         if filter_config:
-            self.print.format__depot('origin size:', depot.sample_size)
+            self.print.format__depot_Pcyan_('origin size:', depot.sample_size)
             for col, filter_list in filter_config:
                 for filtering in filter_list:
-                    self.print('filtering by', filtering, 'on column', col)
+                    self.print.format__depot_Pcyan_('filtering by', filtering, 'on column', col)
                     if filtering == 'remove_empty':
                         filtering = lambda x: x
                     else:
                         filtering = eval('lambda x:' + filtering)
                     depot.customize(col, filtering)
-                    self.print('remaining', depot.sample_size, 'samples')
+                    self.print.format__depot_Pcyan_('remaining', depot.sample_size, 'samples')
         return depot
 
     def _init_depots(self):

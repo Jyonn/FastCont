@@ -17,9 +17,9 @@ class BartDataset(ModelDataset):
 
     def _init_max_sequence(self, order):
         max_sequence = 1
-        for col_name, col_data in self.col_info:
-            if col_name in order:
-                max_length = col_data.max_length or 1
+        for col_name in order:
+            if col_name in self.col_info:
+                max_length = self.col_info[col_name].max_length or 1
                 max_sequence += max_length + int(self.use_sep_token)  # [SEP]
             else:
                 raise ValueError(f'Column [{col_name}] not exist')
@@ -58,30 +58,34 @@ class BartDataset(ModelDataset):
         self.encoder_order = encoder_order
         self.decoder_order = decoder_order
         self.append = self._format_append(append)
+        self.use_cols = list({*self.encoder_order, *self.decoder_order})
 
-        self.encoder_max_sequence = self._init_max_sequence(self.encoder_order)
-        self.decoder_max_sequence = self._init_max_sequence(self.decoder_order)
+        encoder_max_sequence = self._init_max_sequence(self.encoder_order)
+        decoder_max_sequence = self._init_max_sequence(self.decoder_order)
         self.encoder_token_types = len(self.encoder_order)
         self.decoder_token_types = len(self.decoder_order)
 
+        # encoder and decoder will share max length
+        self.max_sequence = max(encoder_max_sequence, decoder_max_sequence)
+
         expand_tokens = self._format_expand_tokens(expand_tokens)
 
-        self.special_tokens = list(range(2 + len(expand_tokens)))
-        self.PAD, self.SEP, *token_ids = self.special_tokens
+        self.special_tokens = list(range(3 + len(expand_tokens)))
+        self.PAD, self.BOS, self.SEP, *token_ids = self.special_tokens
 
-        self.TOKENS = dict(PAD=self.PAD, SEP=self.SEP)
+        self.TOKENS = dict(PAD=self.PAD, BOS=self.BOS, SEP=self.SEP)
         for token, token_id in zip(expand_tokens, token_ids):
             self.TOKENS[token] = token_id
 
-    def pad(self, sequence: list, max_sequence):
-        return sequence + [self.PAD] * (max_sequence - len(sequence))
+    def pad(self, sequence: list):
+        return sequence + [self.PAD] * (self.max_sequence - len(sequence))
 
-    def build_format_sequence(self, sample, max_sequence, order):
+    def build_format_sequence(self, sample, order):
         col_mask = dict()
         input_ids = []
-        segment_ids = []
-        special_mask = torch.tensor([1] * max_sequence, dtype=torch.long)
-        attention_mask = torch.tensor([1] * max_sequence, dtype=torch.long)
+        token_type_ids = []
+        special_mask = torch.tensor([1] * self.max_sequence, dtype=torch.long)
+        attention_mask = torch.tensor([1] * self.max_sequence, dtype=torch.long)
         position = len(input_ids)
         token_type = 0
 
@@ -92,13 +96,13 @@ class BartDataset(ModelDataset):
             if not isinstance(feat, list):
                 feat = [feat]
 
-            col_mask[col_name] = torch.tensor([0] * max_sequence, dtype=torch.long)
+            col_mask[col_name] = torch.tensor([0] * self.max_sequence, dtype=torch.long)
             col_mask[col_name][position: position + len(feat)] = 1
             special_mask -= col_mask[col_name]
 
             input_ids.extend(feat)
             position += len(feat)
-            segment_ids.extend([token_type] * (len(feat) + 1))
+            token_type_ids.extend([token_type] * (len(feat) + 1))
 
             if self.use_sep_token:
                 input_ids.append(self.SEP)
@@ -106,27 +110,36 @@ class BartDataset(ModelDataset):
                 token_type += 1
 
         attention_mask[position:] = 0
-        input_ids = torch.tensor(self.pad(input_ids, max_sequence), dtype=torch.long)
-        segment_ids = torch.tensor(self.pad(segment_ids, max_sequence), dtype=torch.long)
+        input_ids = torch.tensor(self.pad(input_ids), dtype=torch.long)
+        token_type_ids = torch.tensor(self.pad(token_type_ids), dtype=torch.long)
         col_mask[self.special_id] = special_mask
 
         return dict(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            segment_ids=segment_ids,
+            segment_ids=token_type_ids,
             col_mask=col_mask,
         )
 
     def build_format_data(self, sample):
-        encoder_data = self.build_format_sequence(sample, self.encoder_max_sequence, self.encoder_order)
-        decoder_data = self.build_format_sequence(sample, self.decoder_max_sequence, self.decoder_order)
+        encoder_data = self.build_format_sequence(
+            sample=sample,
+            # max_sequence=self.encoder_max_sequence,
+            order=self.encoder_order
+        )
+        decoder_data = self.build_format_sequence(
+            sample=sample,
+            # max_sequence=self.decoder_max_sequence,
+            order=self.decoder_order,
+            # add_head_bos=True
+        )
 
         append_info = dict()
         for col_name in self.append:
             append_info[col_name] = torch.tensor(sample[col_name])
 
         return dict(
-            encoder_data=encoder_data,
-            decoder_data=decoder_data,
+            encoder=encoder_data,
+            decoder=decoder_data,
             append_info=append_info,
         )

@@ -25,12 +25,10 @@ class BertDataset(ModelDataset):
 
     def _init_max_sequence(self):
         max_sequence = 1
-        for col_name, col_data in self.col_info:
-            if col_name in self.order:
-                max_length = col_data.max_length or 1
-                max_sequence += max_length + int(self.use_sep_token)  # [SEP]
-            else:
-                raise ValueError(f'Column [{col_name}] not exist')
+        for col_name in self.order:
+            assert col_name in self.col_info, f'Column [{col_name}] not exist'
+            max_length = self.col_info[col_name].max_length or 1
+            max_sequence += max_length + int(self.use_sep_token)  # [SEP]
         return max_sequence
 
     def _format_expand_tokens(self, expand_tokens):
@@ -56,6 +54,7 @@ class BertDataset(ModelDataset):
         self.use_sep_token = use_sep_token
         self.order = self._format_order(order)
         self.append = self._format_append(append)
+        self.use_cols = self.order
 
         self.max_sequence = self._init_max_sequence()
         self.token_types = len(self.order) if self.use_sep_token else 1

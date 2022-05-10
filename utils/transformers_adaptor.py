@@ -8,3 +8,5 @@ if major_version >= '4':
 else:
     from transformers.modeling_outputs import BaseModelOutputWithPooling as BertOutput
     from transformers.modeling_bert import BertModel
+
+from transformers.modeling_outputs import Seq2SeqModelOutput

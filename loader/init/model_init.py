@@ -52,10 +52,10 @@ class ModelInit:
 
         embedding_tables = dict()
         required_vocabs = set()
-        for col_name in self.dataset.order:
-            required_vocabs.add(self.dataset.depot.col_info.d[col_name].vocab)
+        for col_name in self.dataset.use_cols:
+            required_vocabs.add(self.dataset.depot.get_vocab(col_name))
 
-        self.print('global freeze:', self.global_freeze)
+        self.print('set global freeze to', self.global_freeze)
 
         for vocab in required_vocabs:
             embedding = self.embedding_init.get_embedding(vocab)  # type: Optional[torch.Tensor]

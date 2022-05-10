@@ -15,25 +15,25 @@ class AutoBart(AutoModel):
 
     def forward(self, batch, task: Union[str, BaseTask]):
         if isinstance(task, str):
-            task = self.task_manager[task]
+            task = self.task_initializer[task]
 
-        encoder_attention_mask = batch['encoder_attention_mask'].to(self.device)  # type: torch.Tensor # [B, S]
-        decoder_attention_mask = batch['decoder_attention_mask'].to(self.device)  # type: torch.LongTensor # [B, S]
+        encoder_attention_mask = batch['encoder']['attention_mask'].to(self.device)  # type: torch.Tensor # [B, S]
+        decoder_attention_mask = batch['decoder']['attention_mask'].to(self.device)  # type: torch.LongTensor # [B, S]
 
         encoder_input_embeds = task.get_embedding(
-            batch=batch,
+            batch=batch['encoder'],
             table_dict=self.embedding_tables,
             embedding_size=self.hidden_size,
-            input_ids_key='encoder_input_ids',
-            col_mask_key='encoder_col_mask',
+            # input_ids_key='encoder_input_ids',
+            # col_mask_key='encoder_col_mask',
         )
 
         decoder_input_embeds = task.get_embedding(
-            batch=batch,
+            batch=batch['decoder'],
             table_dict=self.embedding_tables,
             embedding_size=self.hidden_size,
-            input_ids_key='decoder_input_ids',
-            col_mask_key='decoder_col_mask',
+            # input_ids_key='decoder_input_ids',
+            # col_mask_key='decoder_col_mask',
         )
 
         bart_output = self.model(

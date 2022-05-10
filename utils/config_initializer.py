@@ -18,9 +18,7 @@ def init_config(config_path, exp_path):
     formatter = Formatter(
         model=exp.model,
         dataset=config.dataset,
-        hidden_size=config.bert_config.hidden_size,
-        num_hidden_layers=config.bert_config.num_hidden_layers,
-        num_attention_heads=config.bert_config.num_attention_heads,
+        hidden_size=config.model_config.hidden_size,
         batch_size=exp.policy.batch_size,
     )
 

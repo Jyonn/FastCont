@@ -29,4 +29,5 @@ class BartInit(ModelInit):
             decoder_ffn_dim=self.hidden_size * 4,
             decoder_attention_heads=self.decoder_attention_heads,
             d_model=self.hidden_size,
+            pad_token_id=0,
         )

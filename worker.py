@@ -12,7 +12,7 @@ from transformers import get_linear_schedule_with_warmup
 from loader.data import Data
 from loader.task.bert.mlm_task import MLMTask
 from loader.task.base_task import BaseTask
-from model.auto_bert import AutoBert
+# from model.auto_bert import AutoBert
 from utils.config_initializer import init_config
 from utils.gpu import GPU
 from utils.random_seed import seeding
@@ -39,10 +39,10 @@ class Worker:
 
         self.print(self.data.depots['train'][0])
 
-        self.auto_model = AutoBert(
+        self.auto_model = self.data.model(
             device=self.device,
             model_init=self.data.model_init,
-            pretrain_depot=self.data.task_manager,
+            task_initializer=self.data.task_initializer,
         )
 
         self.auto_model.to(self.device)
@@ -103,15 +103,7 @@ class Worker:
             self._attempt_loading(self.exp.load.load_ckpt)
 
     def log_interval(self, epoch, step, task: BaseTask, loss):
-        self.print(
-            "epoch {}, step {}, "
-            "task {}, "
-            "loss {:.4f}".format(
-                epoch,
-                step + 1,
-                task.name,
-                loss.item()
-            ))
+        self.print[f'epoch {epoch}'](f"step {step}, task {task.name}, loss {loss.item():.4f}")
 
     def train(self, *tasks: BaseTask):
         self.print('Start Training')
@@ -123,12 +115,11 @@ class Worker:
         # t_loader = self.data.get_t_loader(task)
         self.m_optimizer.zero_grad()
         for epoch in range(self.exp.policy.epoch_start, self.exp.policy.epoch + self.exp.policy.epoch_start):
-            for task in tasks:
-                task.train()
-                task.start_epoch(epoch - self.exp.policy.epoch_start, self.exp.policy.epoch)
-            t_loader = self.data.get_loader(self.data.TRAIN, *tasks)
+            loader = self.data.get_loader(self.data.TRAIN, *tasks).train()
+            loader.start_epoch(epoch - self.exp.policy.epoch_start, self.exp.policy.epoch)
             self.auto_model.train()
-            for step, batch in enumerate(tqdm(t_loader)):
+
+            for step, batch in enumerate(tqdm(loader)):
                 task = batch['task']
                 task_output = self.auto_model(
                     batch=batch,
@@ -153,11 +144,9 @@ class Worker:
                         if (step + 1) % self.exp.policy.check_interval == 0:
                             self.log_interval(epoch, step, task, loss.loss)
 
-            self.print('end epoch')
-            avg_loss = self.dev(task=task)
-            self.print("epoch {} finished, "
-                  "task {}, "
-                  "loss {:.4f}".format(epoch, task.name, avg_loss))
+            for task in tasks:
+                avg_loss = self.dev(task=task)
+                self.print[f'epoch {epoch}'](f"task {task.name}, loss {avg_loss: .4f}")
 
             if (epoch + 1) % self.exp.policy.store_interval == 0:
                 epoch_path = os.path.join(self.args.store.ckpt_path, 'epoch_{}.bin'.format(epoch))
@@ -167,14 +156,15 @@ class Worker:
                     scheduler=self.m_scheduler.state_dict(),
                 )
                 torch.save(state_dict, epoch_path)
+
         self.print('Training Ended')
 
-    def dev(self, task: BaseTask, steps=None, d_loader=None):
+    def dev(self, task: BaseTask, steps=None):
         avg_loss = torch.tensor(.0).to(self.device)
         self.auto_model.eval()
-        task.eval()
-        d_loader = d_loader or self.data.get_loader(self.data.DEV, task)
-        for step, batch in enumerate(tqdm(d_loader)):
+        loader = self.data.get_loader(self.data.DEV, task).eval()
+
+        for step, batch in enumerate(tqdm(loader)):
             with torch.no_grad():
                 task_output = self.auto_model(
                     batch=batch,
@@ -194,8 +184,7 @@ class Worker:
     def test(self, task: BaseTask):
         assert isinstance(task, MLMTask)
         self.auto_model.eval()
-        task.test()
-        loader = self.data.get_loader(self.data.TEST, task)
+        loader = self.data.get_loader(self.data.TEST, task).test()
 
         overlap_rate_dict = dict()  # type: Dict[str, Union[list, float]]
         hit_rate_dict = dict()  # type: Dict[str, Union[list, float]]

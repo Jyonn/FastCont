@@ -18,21 +18,21 @@ class AutoModel(nn.Module):
             self,
             model_init: ModelInit,
             device,
-            task_manager: TaskInitializer,
+            task_initializer: TaskInitializer,
             model_class: callable,
     ):
         super(AutoModel, self).__init__()
 
         self.model_init = model_init
         self.device = device
-        self.task_manager = task_manager
+        self.task_initializer = task_initializer
 
         self.hidden_size = self.model_init.hidden_size
         self.print = printer[(self.__class__.__name__, '-', Color.MAGENTA)]
 
         self.model = model_class(self.model_init.model_config)  # use compatible code
         self.embedding_tables = self.model_init.get_embedding_tables()
-        self.extra_modules = self.task_manager.get_extra_modules()
+        self.extra_modules = self.task_initializer.get_extra_modules()
         self.print('Extra Modules', self.extra_modules)
 
     def forward(self, batch, task: Union[str, BaseTask]):
