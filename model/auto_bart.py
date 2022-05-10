@@ -1,10 +1,11 @@
 from typing import Union
 
 import torch
-from transformers.models.bart import BartModel
 
 from loader.task.base_task import BaseTask
 from model.auto_model import AutoModel
+
+from utils.transformers_adaptor import BartModel
 
 
 class AutoBart(AutoModel):
