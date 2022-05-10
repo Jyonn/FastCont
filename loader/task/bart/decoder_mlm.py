@@ -14,25 +14,6 @@ from loader.task.base_task import BaseTask, TaskLoss
 from utils.transformers_adaptor import Seq2SeqModelOutput
 
 
-# class ClassificationModule(nn.Module):
-#     def __init__(self, config: BartConfig, vocab_size):
-#         super(ClassificationModule, self).__init__()
-#         self.transform = nn.Linear(config.d_model, config.d_model)
-#         self.transform_act_fn = ACT2FN[config.activation_function]
-#         self.LayerNorm = nn.LayerNorm(config.d_model)
-#
-#         self.decoder = nn.Linear(config.d_model, vocab_size, bias=False)
-#         self.bias = nn.Parameter(torch.zeros(vocab_size), requires_grad=True)
-#         self.decoder.bias = self.bias
-#
-#     def forward(self, hidden_states):
-#         hidden_states = self.transform(hidden_states)
-#         hidden_states = self.transform_act_fn(hidden_states)
-#         hidden_states = self.LayerNorm(hidden_states)
-#         hidden_states = self.decoder(hidden_states)
-#         return hidden_states
-
-
 class DecoderMLMTask(BaseTask):
     name = 'de-mlm'
     dataset: BartDataset
@@ -85,8 +66,12 @@ class DecoderMLMTask(BaseTask):
                         else:
                             col_end = i_tok
                 col_end += 1
-                mask_count = int((col_end - col_start) * self.current_mask_ratio)
-                selected_tokens = slice(col_end - mask_count, col_end)
+
+                if self.is_training:
+                    mask_count = int((col_end - col_start) * self.current_mask_ratio)
+                    col_start = col_end - mask_count
+
+                selected_tokens = slice(col_start, col_end)
 
                 mask_labels[i_batch][selected_tokens] = input_ids[i_batch][selected_tokens]
                 input_ids[i_batch][selected_tokens] = self.dataset.TOKENS[f'MASK_{col_name}']
