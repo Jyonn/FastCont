@@ -4,34 +4,13 @@ from typing import Dict
 import numpy as np
 import torch
 from torch import nn
-from transformers import BartConfig
-from transformers.activations import ACT2FN
 
 from loader.dataset.bart_dataset import BartDataset
-from loader.task.bart.utils import BartClassificationModule
+from loader.task.utils.bart_classification import BartClassificationModule
 
 from loader.task.base_task import BaseTask, TaskLoss
 
 from utils.transformers_adaptor import Seq2SeqModelOutput
-
-
-# class ClassificationModule(nn.Module):
-#     def __init__(self, config: BartConfig, vocab_size):
-#         super(ClassificationModule, self).__init__()
-#         self.transform = nn.Linear(config.d_model, config.d_model)
-#         self.transform_act_fn = ACT2FN[config.activation_function]
-#         self.LayerNorm = nn.LayerNorm(config.d_model)
-#
-#         self.decoder = nn.Linear(config.d_model, vocab_size, bias=False)
-#         self.bias = nn.Parameter(torch.zeros(vocab_size), requires_grad=True)
-#         self.decoder.bias = self.bias
-#
-#     def forward(self, hidden_states):
-#         hidden_states = self.transform(hidden_states)
-#         hidden_states = self.transform_act_fn(hidden_states)
-#         hidden_states = self.LayerNorm(hidden_states)
-#         hidden_states = self.decoder(hidden_states)
-#         return hidden_states
 
 
 class EncoderMLMTask(BaseTask):

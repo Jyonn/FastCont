@@ -13,6 +13,7 @@ from loader.data import Data
 from loader.task.bert.mlm_task import MLMTask
 from loader.task.base_task import BaseTask
 # from model.auto_bert import AutoBert
+from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumTask
 from utils.config_initializer import init_config
 from utils.gpu import GPU
 from utils.random_seed import seeding
@@ -181,8 +182,10 @@ class Worker:
 
         return avg_loss.item()
 
-    def test(self, task: BaseTask):
-        assert isinstance(task, MLMTask)
+    def test__curriculum(self, task: BaseTask):
+        assert isinstance(task, BaseCurriculumTask)
+        col_name = task.test__hit_rate()
+
         self.auto_model.eval()
         loader = self.data.get_loader(self.data.TEST, task).test()
 
@@ -197,14 +200,14 @@ class Worker:
                 output = self.auto_model(
                     batch=batch,
                     task=task,
-                )[task.pred_items]
+                )[col_name]
                 mask_labels_col = batch['mask_labels_col']
                 indexes = batch['append_info']['index']
 
-                col_mask = mask_labels_col[task.pred_items]
+                col_mask = mask_labels_col[col_name]
 
                 for i_batch in range(len(indexes)):
-                    ground_truth = set(task.depot.pack_sample(indexes[i_batch])['pred_items'])
+                    ground_truth = set(task.depot.pack_sample(indexes[i_batch])[col_name])
 
                     for hit_rate in self.exp.policy.hit_rates:
                         candidates_per_channel = max(hit_rate // len(ground_truth), 1)
@@ -271,12 +274,14 @@ class Worker:
             self.print(display_string)
         # elif self.exp.mode == 'export':
         #     self.export()
-        elif self.exp.mode == 'test':
+        elif self.exp.mode.startswith('test'):
+            handler = object.__getattribute__(self, self.exp.mode)
+
             if not self.exp.load.super_load:
                 for task in tasks:
                     if task.name == 'non':
                         continue
-                    self.test(task)
+                    handler(task)
             else:
                 epochs = eval(self.exp.load.epochs)
                 for epoch in epochs:
@@ -286,7 +291,7 @@ class Worker:
                     for task in tasks:
                         if task.name == 'non':
                             continue
-                        self.test(task)
+                        handler(task)
 
 
 if __name__ == "__main__":

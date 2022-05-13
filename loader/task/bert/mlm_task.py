@@ -165,3 +165,6 @@ class MLMTask(BaseCurriculumTask):
             )
             total_loss += loss
         return TaskLoss(loss=total_loss)
+
+    def test__hit_rate(self):
+        return self.pred_items

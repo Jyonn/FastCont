@@ -18,3 +18,6 @@ class BaseCurriculumTask(BaseTask, ABC):
         self.current_mask_ratio = \
             (int(current_epoch * self.curriculum_steps // total_epoch) + 1) * 1.0 / self.curriculum_steps
         self.print(f'set current mask ratio to {self.current_mask_ratio}')
+
+    def test__hit_rate(self):
+        raise NotImplementedError

@@ -142,3 +142,12 @@ class BaseTask:
 
     def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:
         raise NotImplementedError
+
+    def t(self, channel, *args, **kwargs):
+        return self.__getattr__(f'test__{channel}')(*args, **kwargs)
+
+    def __getattr__(self, item: str):
+        if item.startswith('test__'):
+            return object.__getattribute__(self, item)
+
+        raise ValueError(f'{self.__class__.__name__} has no {item} attribute')

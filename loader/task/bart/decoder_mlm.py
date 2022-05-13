@@ -5,7 +5,7 @@ import torch
 from torch import nn
 
 from loader.dataset.bart_dataset import BartDataset
-from loader.task.bart.utils import BartClassificationModule
+from loader.task.utils.bart_classification import BartClassificationModule
 
 from loader.task.base_task import TaskLoss
 from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumTask
@@ -129,3 +129,6 @@ class DecoderMLMTask(BaseCurriculumTask):
             )
             total_loss += loss
         return TaskLoss(loss=total_loss)
+
+    def test__hit_rate(self):
+        return self.dataset.decoder_order[0]
