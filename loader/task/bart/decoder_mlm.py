@@ -3,39 +3,31 @@ from typing import Dict
 
 import torch
 from torch import nn
-from transformers import BartConfig
-from transformers.activations import ACT2FN
 
 from loader.dataset.bart_dataset import BartDataset
 from loader.task.bart.utils import BartClassificationModule
 
-from loader.task.base_task import BaseTask, TaskLoss
+from loader.task.base_task import TaskLoss
+from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumTask
 
 from utils.transformers_adaptor import Seq2SeqModelOutput
 
 
-class DecoderMLMTask(BaseTask):
+class DecoderMLMTask(BaseCurriculumTask):
     name = 'de-mlm'
     dataset: BartDataset
 
     def __init__(
             self,
-            curriculum_steps=10,
             loss_pad=-100,
             apply_cols=None,
+            **kwargs
     ):
-        super(DecoderMLMTask, self).__init__()
+        super(DecoderMLMTask, self).__init__(**kwargs)
         self.loss_pad = loss_pad
         self.apply_cols = apply_cols  # type: list
-        self.curriculum_steps = curriculum_steps  # 10
-        self.current_mask_ratio = 0
 
         self.loss_fct = nn.CrossEntropyLoss()
-
-    def start_epoch(self, current_epoch, total_epoch):  # 3 50
-        self.current_mask_ratio = \
-            (int(current_epoch * self.curriculum_steps // total_epoch) + 1) * 1.0 / self.curriculum_steps
-        self.print(f'set current mask ratio to {self.current_mask_ratio}')
 
     def get_expand_tokens(self):
         return ['MASK_{de_col}']

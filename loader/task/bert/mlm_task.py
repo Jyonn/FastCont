@@ -1,6 +1,6 @@
 import copy
 import random
-from typing import Dict, Optional
+from typing import Dict
 
 import numpy as np
 import torch
@@ -9,9 +9,10 @@ from transformers import BertConfig
 from transformers.activations import ACT2FN
 
 from loader.dataset.bert_dataset import BertDataset
+from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumTask
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.base_task import BaseTask, TaskLoss
+from loader.task.base_task import TaskLoss
 
 
 class ClassificationModule(nn.Module):
@@ -33,7 +34,7 @@ class ClassificationModule(nn.Module):
         return hidden_states
 
 
-class MLMTask(BaseTask):
+class MLMTask(BaseCurriculumTask):
     """
     MLM task for ListCont
     """
@@ -47,40 +48,22 @@ class MLMTask(BaseTask):
             mask_prob=0.8,
             random_prob=0.1,
             loss_pad=-100,
-            curriculum_steps=10,  # [0, 1, 2, 3]
-            epoch_ratio: Optional[str] = None,
-            uni_mask: bool = False,
+            **kwargs,
     ):
-        super(MLMTask, self).__init__()
+        super(MLMTask, self).__init__(**kwargs)
         self.select_prob = select_prob
         self.mask_prob = mask_prob
         self.random_prob = random_prob
         self.loss_pad = loss_pad
 
-        self.uni_mask = uni_mask
         self.known_items = 'known_items'
         self.pred_items = 'pred_items'
         self.apply_cols = [self.known_items, self.pred_items]
 
         self.loss_fct = nn.CrossEntropyLoss()
-        self.curriculum_steps = curriculum_steps
-        self.current_curriculum_step = 0
-        self.mask_ratio = 0
-
-        self.epoch_ratio = list(map(int, str(epoch_ratio).strip().split(' '))) if epoch_ratio else range(self.curriculum_steps + 1)
-
-    def start_epoch(self, current_epoch, total_epoch):
-        self.print('start epoch', current_epoch, '/', total_epoch)
-        index = round(current_epoch / (total_epoch - 1) * (len(self.epoch_ratio) - 1))
-        self.set_curriculum_step(self.epoch_ratio[index])
-
-    def set_curriculum_step(self, step):
-        self.print('move step to', step)
-        self.current_curriculum_step = step
-        self.mask_ratio = self.current_curriculum_step / self.curriculum_steps
 
     def get_expand_tokens(self):
-        return ['MASK' if self.uni_mask else 'MASK_{col}']
+        return ['MASK_{col}']
 
     def do_mask(self, mask, tok, vocab_size, force_mask=None):
         tok = int(tok)
@@ -111,11 +94,11 @@ class MLMTask(BaseTask):
 
         vocab_size = self.depot.get_vocab_size(self.known_items)
         for i_batch in range(batch_size):
-            if self.current_curriculum_step == 0 and self.is_training:
+            if self.is_training:
                 for i_tok in range(self.dataset.max_sequence):
                     if col_mask[self.known_items][i_batch][i_tok]:
                         input_id, mask_label, use_special_col = self.do_mask(
-                            mask=self.dataset.TOKENS['MASK' if self.uni_mask else f'MASK_{self.known_items}'],
+                            mask=self.dataset.TOKENS[f'MASK_{self.known_items}'],
                             tok=input_ids[i_batch][i_tok],
                             vocab_size=vocab_size
                         )
@@ -125,22 +108,21 @@ class MLMTask(BaseTask):
                             col_mask[self.known_items][i_batch][i_tok] = 0
                             col_mask[self.dataset.special_id][i_batch][i_tok] = 1
 
-            else:
-                for i_tok in range(self.dataset.max_sequence):
-                    if col_mask[self.pred_items][i_batch][i_tok]:
-                        force_mask = random.random() < self.mask_ratio or not self.is_training
+            for i_tok in range(self.dataset.max_sequence):
+                if col_mask[self.pred_items][i_batch][i_tok]:
+                    force_mask = random.random() < self.current_mask_ratio or not self.is_training
 
-                        input_id, mask_label, use_special_col = self.do_mask(
-                            mask=self.dataset.TOKENS['MASK' if self.uni_mask else f'MASK_{self.known_items}'],
-                            tok=input_ids[i_batch][i_tok],
-                            vocab_size=vocab_size,
-                            force_mask=force_mask,
-                        )
-                        input_ids[i_batch][i_tok] = input_id
-                        mask_labels[i_batch][i_tok] = mask_label
-                        if use_special_col:
-                            col_mask[self.known_items][i_batch][i_tok] = 0
-                            col_mask[self.dataset.special_id][i_batch][i_tok] = 1
+                    input_id, mask_label, use_special_col = self.do_mask(
+                        mask=self.dataset.TOKENS[f'MASK_{self.known_items}'],
+                        tok=input_ids[i_batch][i_tok],
+                        vocab_size=vocab_size,
+                        force_mask=force_mask,
+                    )
+                    input_ids[i_batch][i_tok] = input_id
+                    mask_labels[i_batch][i_tok] = mask_label
+                    if use_special_col:
+                        col_mask[self.known_items][i_batch][i_tok] = 0
+                        col_mask[self.dataset.special_id][i_batch][i_tok] = 1
 
         batch['mask_labels'] = mask_labels
         return batch
