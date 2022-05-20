@@ -113,7 +113,7 @@ class MLMTask(BaseCurriculumTask):
                     force_mask = random.random() < self.current_mask_ratio or not self.is_training
 
                     input_id, mask_label, use_special_col = self.do_mask(
-                        mask=self.dataset.TOKENS[f'MASK_{self.known_items}'],
+                        mask=self.dataset.TOKENS[f'MASK_{self.pred_items}'],
                         tok=input_ids[i_batch][i_tok],
                         vocab_size=vocab_size,
                         force_mask=force_mask,
@@ -121,7 +121,7 @@ class MLMTask(BaseCurriculumTask):
                     input_ids[i_batch][i_tok] = input_id
                     mask_labels[i_batch][i_tok] = mask_label
                     if use_special_col:
-                        col_mask[self.known_items][i_batch][i_tok] = 0
+                        col_mask[self.pred_items][i_batch][i_tok] = 0
                         col_mask[self.dataset.special_id][i_batch][i_tok] = 1
 
         batch['mask_labels'] = mask_labels

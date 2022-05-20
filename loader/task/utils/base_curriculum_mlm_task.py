@@ -9,10 +9,21 @@ class BaseCurriculumTask(BaseTask, ABC):
     def __init__(
             self,
             curriculum_steps=10,
+            weighted=False,
+            weight_decay=1,
     ):
+        """
+
+        :param curriculum_steps: 课程学习总步长
+        :param weighted: 是否使用加权模式（如当前过了40%的epoch，则mask 40%的数据权重为1）
+        :param weight_decay: 加权模式下的权重衰减
+        """
         super(BaseCurriculumTask, self).__init__()
         self.curriculum_steps = curriculum_steps  # 10
         self.current_mask_ratio = 0
+
+        self.weighted = weighted
+        self.weight_decay = weight_decay
 
     def start_epoch(self, current_epoch, total_epoch):  # 3 50
         self.current_mask_ratio = \

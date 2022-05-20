@@ -1,4 +1,5 @@
 import copy
+import random
 from typing import Dict
 
 import torch
@@ -42,6 +43,13 @@ class DecoderMLMTask(BaseCurriculumTask):
         mask_labels = torch.ones(batch_size, self.dataset.max_sequence, dtype=torch.long) * -100
         batch['mask_labels_col'] = copy.deepcopy(col_mask)
 
+        if self.weighted:
+            mask_ratio = random.random()
+            batch['weight'] = abs(self.current_mask_ratio - mask_ratio) * self.weight_decay
+        else:
+            mask_ratio = self.current_mask_ratio
+            batch['weight'] = 1
+
         for col_name, _ in self.depot.col_info:
             if col_name not in col_mask:
                 continue
@@ -60,7 +68,7 @@ class DecoderMLMTask(BaseCurriculumTask):
                 col_end += 1
 
                 if self.is_training:
-                    mask_count = int((col_end - col_start) * self.current_mask_ratio)
+                    mask_count = int((col_end - col_start) * mask_ratio)
                     col_start = col_end - mask_count
 
                 selected_tokens = slice(col_start, col_end)
@@ -127,7 +135,7 @@ class DecoderMLMTask(BaseCurriculumTask):
                 output[col_name].view(-1, vocab_size),
                 col_labels
             )
-            total_loss += loss
+            total_loss += loss * batch['weight']
         return TaskLoss(loss=total_loss)
 
     def test__hit_rate(self):
