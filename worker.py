@@ -191,9 +191,11 @@ class Worker:
 
         overlap_rate_dict = dict()  # type: Dict[str, Union[list, float]]
         hit_rate_dict = dict()  # type: Dict[str, Union[list, float]]
-        for hit_rate in self.exp.policy.hit_rates:
-            overlap_rate_dict[str(hit_rate)] = []
-            hit_rate_dict[str(hit_rate)] = []
+        recall_dict = dict()  # type: Dict[str, Union[list, float]]
+        for n in self.exp.policy.n_metrics:
+            overlap_rate_dict[str(n)] = []
+            hit_rate_dict[str(n)] = []
+            recall_dict[str(n)] = []
 
         for step, batch in enumerate(tqdm(loader)):
             with torch.no_grad():
@@ -207,26 +209,36 @@ class Worker:
                 col_mask = mask_labels_col[col_name]
 
                 for i_batch in range(len(indexes)):
+                    argsorts = []
+                    for i_tok in range(task.dataset.max_sequence):
+                        if col_mask[i_batch][i_tok]:
+                            argsorts.append(
+                                torch.argsort(
+                                    output[i_batch][i_tok], descending=True).cpu().tolist())
+                        else:
+                            argsorts.append(None)
+
                     ground_truth = set(task.depot.pack_sample(indexes[i_batch])[col_name])
 
-                    for hit_rate in self.exp.policy.hit_rates:
-                        candidates_per_channel = max(hit_rate // len(ground_truth), 1)
+                    for n in self.exp.policy.n_metrics:
+                        candidates_per_channel = max(n // len(ground_truth), 1)
 
                         candidates = set()
                         for i_tok in range(task.dataset.max_sequence):
                             if col_mask[i_batch][i_tok]:
-                                candidates.update(
-                                    torch.argsort(
-                                        output[i_batch][i_tok], descending=True).cpu().tolist()[:candidates_per_channel])
+                                candidates.update(argsorts[i_tok][:candidates_per_channel])
 
-                        overlap_rate_dict[str(hit_rate)].append(len(candidates) / (candidates_per_channel * len(ground_truth)))
-                        hit_rate_dict[str(hit_rate)].append(int(bool(candidates.intersection(ground_truth))))
+                        interaction = candidates.intersection(ground_truth)
+                        overlap_rate_dict[str(n)].append(len(candidates) / (candidates_per_channel * len(ground_truth)))
+                        hit_rate_dict[str(n)].append(int(bool(interaction)))
+                        recall_dict[str(n)].append(len(interaction) * 1.0 / n)
 
-        for hit_rate in self.exp.policy.hit_rates:
-            for d in [overlap_rate_dict, hit_rate_dict]:
-                d[str(hit_rate)] = torch.tensor(d[str(hit_rate)], dtype=torch.float).mean().item()
-            self.print('HR@%4d: %.4f' % (hit_rate, hit_rate_dict[str(hit_rate)]))
-            self.print('OR@%4d: %.4f' % (hit_rate, overlap_rate_dict[str(hit_rate)]))
+        for n in self.exp.policy.n_metrics:
+            for d in [overlap_rate_dict, hit_rate_dict, recall_dict]:
+                d[str(n)] = torch.tensor(d[str(n)], dtype=torch.float).mean().item()
+            self.print('HR@%4d: %.4f' % (n, hit_rate_dict[str(n)]))
+            self.print('OR@%4d: %.4f' % (n, overlap_rate_dict[str(n)]))
+            self.print('RC@%4d: %.4f' % (n, recall_dict[str(n)]))
 
     # def export(self):
     #     # bert_aggregator = BertAggregator(
