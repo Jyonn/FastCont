@@ -197,6 +197,8 @@ class Worker:
             hit_rate_dict[str(n)] = []
             recall_dict[str(n)] = []
 
+        max_n = max(self.exp.policy.n_metrics)
+
         for step, batch in enumerate(tqdm(loader)):
             with torch.no_grad():
                 output = self.auto_model(
@@ -214,7 +216,7 @@ class Worker:
                         if col_mask[i_batch][i_tok]:
                             argsorts.append(
                                 torch.argsort(
-                                    output[i_batch][i_tok], descending=True).cpu().tolist())
+                                    output[i_batch][i_tok], descending=True).cpu().tolist()[:max_n])
                         else:
                             argsorts.append(None)
 
