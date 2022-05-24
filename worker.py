@@ -51,8 +51,9 @@ class Worker:
         self.save_model = self.auto_model
 
         self.static_modes = ['export', 'dev', 'test']
+        self.in_static_modes = self.exp.mode in self.static_modes or self.exp.mode.startswith('test')
 
-        if self.exp.mode in self.static_modes:
+        if self.in_static_modes:
             self.m_optimizer = self.m_scheduler = None
         else:
             self.m_optimizer = torch.optim.Adam(
@@ -93,7 +94,7 @@ class Worker:
 
         self.save_model.load_state_dict(model_ckpt, strict=not self.exp.load.relax_load)
         load_status = False
-        if self.exp.mode not in self.static_modes and not self.exp.load.load_model_only:
+        if not self.in_static_modes and not self.exp.load.load_model_only:
             load_status = True
             self.m_optimizer.load_state_dict(state_dict['optimizer'])
             self.m_scheduler.load_state_dict(state_dict['scheduler'])
@@ -147,7 +148,7 @@ class Worker:
 
             for task in tasks:
                 avg_loss = self.dev(task=task)
-                self.print[f'epoch {epoch}'](f"task {task.name}, loss {avg_loss: .4f}")
+                self.print[f'epoch {epoch}'](f"task {task.name}, loss {avg_loss:.4f}")
 
             if (epoch + 1) % self.exp.policy.store_interval == 0:
                 epoch_path = os.path.join(self.args.store.ckpt_path, 'epoch_{}.bin'.format(epoch))
@@ -205,7 +206,7 @@ class Worker:
                     batch=batch,
                     task=task,
                 )[col_name]
-                mask_labels_col = batch['mask_labels_col']
+                mask_labels_col = batch['decoder']['mask_labels_col']
                 indexes = batch['append_info']['index']
 
                 col_mask = mask_labels_col[col_name]

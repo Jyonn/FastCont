@@ -8,8 +8,8 @@ class BaseCurriculumTask(BaseTask, ABC):
 
     def __init__(
             self,
-            curriculum_steps=10,
             weighted=False,
+            curriculum_steps=10,
             weight_decay=1,
     ):
         """
@@ -26,8 +26,11 @@ class BaseCurriculumTask(BaseTask, ABC):
         self.weight_decay = weight_decay
 
     def start_epoch(self, current_epoch, total_epoch):  # 3 50
-        self.current_mask_ratio = \
-            (int(current_epoch * self.curriculum_steps // total_epoch) + 1) * 1.0 / self.curriculum_steps
+        if self.weighted:
+            self.current_mask_ratio = (current_epoch + 1) * 1.0 / total_epoch
+        else:
+            self.current_mask_ratio = \
+                (int(current_epoch * self.curriculum_steps // total_epoch) + 1) * 1.0 / self.curriculum_steps
         self.print(f'set current mask ratio to {self.current_mask_ratio}')
 
     def test__hit_rate(self):

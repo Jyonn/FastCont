@@ -45,10 +45,11 @@ class DecoderMLMTask(BaseCurriculumTask):
 
         if self.weighted:
             mask_ratio = random.random()
-            batch['weight'] = abs(self.current_mask_ratio - mask_ratio) * self.weight_decay
+            batch['weight'] = (1 - abs(self.current_mask_ratio - mask_ratio)) * self.weight_decay
         else:
             mask_ratio = self.current_mask_ratio
             batch['weight'] = 1
+        batch['mask_ratio'] = mask_ratio
 
         for col_name, _ in self.depot.col_info:
             if col_name not in col_mask:
@@ -70,6 +71,8 @@ class DecoderMLMTask(BaseCurriculumTask):
                 if self.is_training:
                     mask_count = int((col_end - col_start) * mask_ratio)
                     col_start = col_end - mask_count
+                else:
+                    batch['weight'] = 1
 
                 selected_tokens = slice(col_start, col_end)
 
