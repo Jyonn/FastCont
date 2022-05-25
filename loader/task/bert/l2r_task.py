@@ -33,6 +33,7 @@ class ClassificationModule(nn.Module):
 
 
 class L2RTask(BaseTask):
+    name = 'l2r'
     dataset: BertDataset
 
     def __init__(
@@ -41,7 +42,7 @@ class L2RTask(BaseTask):
             neg_ratio=4,
             test=False,
     ):
-        super(L2RTask, self).__init__(name='l2r')
+        super(L2RTask, self).__init__()
         self.apply_col = apply_col  # type: str
         self.neg_ratio = neg_ratio
         self.test = test

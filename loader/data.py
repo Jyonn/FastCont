@@ -65,6 +65,7 @@ class Data:
                 mode=mode,
                 expand_tokens=self.task_manager.expand_tokens,
                 use_sep_token=self.exp.policy.use_sep_token,
+                inject_task=self.task_manager.injection_task,
                 **self.args.set.d,
             )
 

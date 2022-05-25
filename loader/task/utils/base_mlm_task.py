@@ -15,6 +15,7 @@ class BaseMLMTask(BaseTask, ABC):
     name = 'base-mlm'
     mask_scheme = 'MASK'
     cls_module: Union[BertClassificationModule, BartClassificationModule]
+    col_order: list
 
     def __init__(
             self,

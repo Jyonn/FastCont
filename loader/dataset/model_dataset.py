@@ -3,6 +3,7 @@ from UniTok import UniDep
 
 from torch.utils.data import Dataset
 
+from loader.task.base_task import BaseTask
 from utils.smart_printer import printer, Bracket, Color
 from utils.splitter import Splitter
 
@@ -26,6 +27,7 @@ class ModelDataset(Dataset):
             depot: UniDep,
             splitter: Splitter = None,
             mode=None,
+            inject_task: BaseTask = None,
             **kwargs,
     ):
         self.depot = depot
@@ -34,6 +36,7 @@ class ModelDataset(Dataset):
         self.mode = mode
 
         self.sample_size = self.depot.sample_size
+        self.injected_task = inject_task
 
         if splitter is None:
             self.split_range = (0, self.sample_size)
@@ -42,9 +45,6 @@ class ModelDataset(Dataset):
             assert splitter.contains(mode)
 
         self.print = printer[(self.__class__.__name__, Bracket.CLASS, Color.MAGENTA)]
-
-    def inject_task(self, task):
-        self.injected_task = task
 
     """
     get raw sample
