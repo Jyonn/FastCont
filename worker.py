@@ -10,10 +10,10 @@ from transformers import get_linear_schedule_with_warmup
 # from utils.transformers_adaptor import BertOutput
 
 from loader.data import Data
-from loader.task.bert.mlm_task import MLMTask
+from loader.task.bert.curriculum_mlm_task import CurriculumMLMTask
 from loader.task.base_task import BaseTask
 # from model.auto_bert import AutoBert
-from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumTask
+from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask
 from utils.config_initializer import init_config
 from utils.gpu import GPU
 from utils.random_seed import seeding
@@ -184,7 +184,7 @@ class Worker:
         return avg_loss.item()
 
     def test__curriculum(self, task: BaseTask):
-        assert isinstance(task, BaseCurriculumTask)
+        assert isinstance(task, BaseCurriculumMLMTask)
         col_name = task.test__hit_rate()
 
         self.auto_model.eval()

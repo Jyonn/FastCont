@@ -5,6 +5,8 @@ from loader.dataset.model_dataset import ModelDataset
 
 
 class BartDataset(ModelDataset):
+    EN_COL_PH = '{en-col}'
+    DE_COL_PH = '{de-col}'
 
     def _format_append(self, append):
         append = append or []
@@ -25,21 +27,22 @@ class BartDataset(ModelDataset):
                 raise ValueError(f'Column [{col_name}] not exist')
         return max_sequence
 
+    @staticmethod
+    def _generate_expand_tokens(placeholder: str, token: str, col_list):
+        return [token.replace(placeholder, col_name) for col_name in col_list]
+
     def _format_expand_tokens(self, expand_tokens):
         expand_tokens_ = []
         for token in expand_tokens or []:
-            if '{en_col}' in token:
-                for col_name in self.encoder_order:
-                    expand_tokens_.append(token.replace('{en_col}', col_name))
-            elif '{de_col}' in token:
-                for col_name in self.decoder_order:
-                    expand_tokens_.append(token.replace('{de_col}', col_name))
-            elif '{col}' in token:
-                for col_name in [*self.encoder_order, *self.decoder_order]:
-                    expand_tokens_.append(token.replace('{col}', col_name))
+            if self.EN_COL_PH in token:
+                expand_tokens_.extend(self._generate_expand_tokens(self.EN_COL_PH, token, self.encoder_order))
+            elif self.DE_COL_PH in token:
+                expand_tokens_.extend(self._generate_expand_tokens(self.DE_COL_PH, token, self.decoder_order))
+            elif self.COL_PH in token:
+                expand_tokens_.extend(self._generate_expand_tokens(self.COL_PH, token, {*self.encoder_order, *self.decoder_order}))
             else:
                 expand_tokens_.append(token)
-        return list(set(expand_tokens_))
+        return expand_tokens_
 
     def __init__(
             self,

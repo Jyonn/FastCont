@@ -34,9 +34,9 @@ class BertDataset(ModelDataset):
     def _format_expand_tokens(self, expand_tokens):
         expand_tokens_ = []
         for token in expand_tokens or []:
-            if '{col}' in token:
+            if self.COL_PH in token:
                 for col_name in self.order:
-                    expand_tokens_.append(token.replace('{col}', col_name))
+                    expand_tokens_.append(token.replace(self.COL_PH, col_name))
             else:
                 expand_tokens_.append(token)
         return expand_tokens_

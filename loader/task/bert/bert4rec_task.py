@@ -5,41 +5,20 @@ from typing import Dict
 import numpy as np
 import torch
 from torch import nn
-from transformers import BertConfig
-from transformers.activations import ACT2FN
 
 from loader.dataset.bert_dataset import BertDataset
-from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumTask
+from loader.task.utils.bert_classification import BertClassificationModule
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.base_task import TaskLoss
+from loader.task.base_task import TaskLoss, BaseTask
 
 
-class ClassificationModule(nn.Module):
-    def __init__(self, config: BertConfig, vocab_size):
-        super(ClassificationModule, self).__init__()
-        self.transform = nn.Linear(config.hidden_size, config.hidden_size)
-        self.transform_act_fn = ACT2FN[config.hidden_act]
-        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
-
-        self.decoder = nn.Linear(config.hidden_size, vocab_size, bias=False)
-        self.bias = nn.Parameter(torch.zeros(vocab_size), requires_grad=True)
-        self.decoder.bias = self.bias
-
-    def forward(self, hidden_states):
-        hidden_states = self.transform(hidden_states)
-        hidden_states = self.transform_act_fn(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states)
-        hidden_states = self.decoder(hidden_states)
-        return hidden_states
-
-
-class MLMTask(BaseCurriculumTask):
+class Bert4RecTask(BaseTask):
     """
-    MLM task for ListCont
+    Bert4Rec task for ListCont
     """
 
-    name = 'mlm'
+    name = 'bert4rec'
     dataset: BertDataset
 
     def __init__(
@@ -48,17 +27,17 @@ class MLMTask(BaseCurriculumTask):
             mask_prob=0.8,
             random_prob=0.1,
             loss_pad=-100,
-            **kwargs,
     ):
-        super(MLMTask, self).__init__(**kwargs)
+        super(Bert4RecTask, self).__init__()
         self.select_prob = select_prob
         self.mask_prob = mask_prob
         self.random_prob = random_prob
         self.loss_pad = loss_pad
 
         self.known_items = 'known_items'
-        self.pred_items = 'pred_items'
-        self.apply_cols = [self.known_items, self.pred_items]
+        # self.pred_items = 'pred_items'
+        # self.apply_cols = [self.known_items, self.pred_items]
+        self.apply_cols = [self.known_items]
 
         self.loss_fct = nn.CrossEntropyLoss()
 
@@ -135,7 +114,7 @@ class MLMTask(BaseCurriculumTask):
                 self.print('Escape create modules for', col_name, '(', vocab, ')')
                 continue
             vocab_size = self.depot.get_vocab_size(vocab, as_vocab=True)
-            module_dict[vocab] = ClassificationModule(self.model_init.model_config, vocab_size)
+            module_dict[vocab] = BertClassificationModule(vocab, self.model_init.model_config, vocab_size)
             self.print('Classification Module for', col_name, '(', vocab, ')', 'with vocab size', vocab_size)
         return nn.ModuleDict(module_dict)
 

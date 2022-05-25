@@ -18,6 +18,9 @@ class ModelDataset(Dataset):
     max_sequence: int
     use_cols: list
 
+    TOKENS: dict = {}
+    COL_PH = '{col}'
+
     def __init__(
             self,
             depot: UniDep,

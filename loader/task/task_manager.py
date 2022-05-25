@@ -1,12 +1,12 @@
-from loader.task.bart.decoder_mlm import DecoderMLMTask
+from loader.task.bart.decoder_curriculum_mlm import DecoderCurriculumMLMTask
 from loader.task.bart.encoder_mlm import EncoderMLMTask
-from loader.task.bert.mlm_task import MLMTask
+from loader.task.bert.curriculum_mlm_task import CurriculumMLMTask
 from loader.task.non_task import NonTask
 from utils.smart_printer import printer
 
 
 class TaskManager:
-    TASKS = [MLMTask, NonTask, EncoderMLMTask, DecoderMLMTask]
+    TASKS = [CurriculumMLMTask, NonTask, EncoderMLMTask, DecoderCurriculumMLMTask]
 
     def __init__(self, project_exp):
         self.print = printer.ATOM__TASK_Cblue_
