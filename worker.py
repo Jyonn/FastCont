@@ -1,4 +1,5 @@
 import argparse
+import copy
 import os
 
 import torch
@@ -181,16 +182,9 @@ class Worker:
 
         return avg_loss.item()
 
-    def test__curriculum(self, task: BaseTask):
-        metric_pool = metric.MetricPool()
-        metric_pool.add(metric.OverlapRate())
-        metric_pool.add(metric.HitRate(), ns=self.exp.policy.n_metrics)
-        metric_pool.add(metric.Recall(), ns=self.exp.policy.n_metrics)
-        metric_pool.init()
-
+    def test__curriculum(self, task: BaseTask, metric_pool: metric.MetricPool):
         assert isinstance(task, BaseCurriculumMLMTask)
 
-        self.auto_model.eval()
         loader = self.data.get_loader(self.data.TEST, task).test()
 
         for batch in tqdm(loader, disable=self.disable_tqdm):
@@ -201,31 +195,35 @@ class Worker:
                 )
                 task.test__curriculum(batch, output, metric_pool)
 
-        metric_pool.export()
-        for metric_name, n in metric_pool.values:
-            self.print(f'{metric_name}@{n:%4d}: {metric_pool.values[(metric_name, n)]:%.4f}')
+    def test__left2right(self, task: BaseTask, metric_pool: metric.MetricPool):
+        assert isinstance(task, Bert4RecTask)
 
-    def test__left2right(self, task: BaseTask):
+        test_depot = self.data.sets[self.data.TEST].depot
+        dictifier = Dictifier(aggregator=torch.stack)
+
+        with torch.no_grad():
+            for sample in tqdm(test_depot, disable=self.disable_tqdm):
+                sample = copy.deepcopy(sample)
+                task.test__left2right(sample, self.auto_model, metric_pool, dictifier=dictifier)
+
+    def test_center(self, handler, task: BaseTask):
         metric_pool = metric.MetricPool()
         metric_pool.add(metric.OverlapRate())
         metric_pool.add(metric.HitRate(), ns=self.exp.policy.n_metrics)
         metric_pool.add(metric.Recall(), ns=self.exp.policy.n_metrics)
         metric_pool.init()
 
-        assert isinstance(task, Bert4RecTask)
         self.auto_model.eval()
-
-        test_depot = self.data.sets[self.data.TEST].depot
-        dictifier = Dictifier(aggregator=torch.stack)
         task.test()
 
-        with torch.no_grad():
-            for sample in tqdm(test_depot, disable=self.disable_tqdm):
-                task.test__left2right(sample, self.auto_model, metric_pool, dictifier=dictifier)
+        handler(task, metric_pool)
 
         metric_pool.export()
         for metric_name, n in metric_pool.values:
-            self.print(f'{metric_name}@{n:%4d}: {metric_pool.values[(metric_name, n)]:%.4f}')
+            if n:
+                self.print(f'{metric_name}@{n:4d}: {metric_pool.values[(metric_name, n)]:.4f}')
+            else:
+                self.print(f'{metric_name}     : {metric_pool.values[(metric_name, n)]:.4f}')
 
     # def export(self):
     #     # bert_aggregator = BertAggregator(
@@ -280,7 +278,7 @@ class Worker:
                 for task in tasks:
                     if task.name == 'non':
                         continue
-                    handler(task)
+                    self.test_center(handler, task)
             else:
                 epochs = eval(self.exp.load.epochs)
                 for epoch in epochs:
@@ -290,7 +288,7 @@ class Worker:
                     for task in tasks:
                         if task.name == 'non':
                             continue
-                        handler(task)
+                        self.test_center(handler, task)
 
 
 if __name__ == "__main__":

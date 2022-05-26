@@ -15,7 +15,8 @@ load:
   relax_load: false
   super_load: true
   ckpt_base_path: bert4rec-bert
-  epochs: "map(lambda x: 5 * x + 4, list(range(2)))"
+#  epochs: "map(lambda x: 5 * x + 4, list(range(2)))"
+  epochs: "[9]"
 policy:
   use_sep_token: true
   pin_memory: true
