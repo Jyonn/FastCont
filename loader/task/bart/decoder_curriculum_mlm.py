@@ -8,7 +8,8 @@ from utils.transformers_adaptor import Seq2SeqModelOutput
 
 class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
     name = 'de-cu-mlm'
-    mask_scheme = 'D-C-MASK'
+    mask_scheme = 'D-C-MASK_{de-col}'
+    mask_col_ph = '{de-col}'
     dataset: BartDataset
     cls_module = BartClassificationModule
 
@@ -21,9 +22,6 @@ class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
     def init(self, **kwargs):
         super().init(**kwargs)
         self.col_order = self.get_col_order(self.dataset.decoder_order)
-
-    def get_expand_tokens(self):
-        return [self.mask_scheme + '_{de-col}']
 
     def rebuild_batch(self, batch):
         batch_ = batch

@@ -55,7 +55,7 @@ class MetricPool:
             self.metrics[metric.name] = metric
 
             for n in ns:
-                if n > self.max_n:
+                if n and n > self.max_n:
                     self.max_n = n
                 self.pool.append((metric.name, n))
 
@@ -66,10 +66,10 @@ class MetricPool:
 
     def push(self, candidates, candidates_set, ground_truth, **kwargs):
         for metric_name, n in self.values:
-            if len(ground_truth) < n:
+            if n and len(ground_truth) < n:
                 continue
 
-            self.values[(metric_name, n)].append(self.metrics[metric_name].run(
+            self.values[(metric_name, n)].append(self.metrics[metric_name].calculate(
                 candidates=candidates,
                 candidates_set=candidates_set,
                 ground_truth=ground_truth,

@@ -2,6 +2,7 @@ from typing import Dict
 
 import numpy as np
 import torch
+from torch import nn
 
 from loader.dataset.bert_dataset import BertDataset
 from loader.task.utils.base_mlm_task import BaseMLMTask
@@ -18,6 +19,7 @@ class Bert4RecTask(BaseMLMTask):
     mask_scheme = 'MASK'
     dataset: BertDataset
     cls_module = BertClassificationModule
+    injection = ['train', 'dev']
 
     def __init__(
             self,
@@ -35,16 +37,17 @@ class Bert4RecTask(BaseMLMTask):
 
         self.mask_last_ratio = mask_last_ratio
 
-    def get_expand_tokens(self):
-        return [self.mask_scheme]
-
     # rebuild sample in dataset layer by init and dataset_injector
 
     def init(self, **kwargs):
         super().init(**kwargs)
-        self.dataset.order = [self.concat_col]
+        self.depot.col_info[self.concat_col] = dict(vocab=self.depot.col_info[self.known_items].vocab)
 
-    def dataset_injector(self, sample):
+    def _injector_init(self, dataset):
+        # not only one dataset is required to be initialized
+        dataset.order = [self.concat_col]
+
+    def sample_injector(self, sample):
         sample[self.concat_col] = sample[self.known_items] + sample[self.pred_items]
         del sample[self.known_items], sample[self.pred_items]
         return sample
@@ -70,10 +73,10 @@ class Bert4RecTask(BaseMLMTask):
                 mask_index.append(col_end)
 
                 mask_labels[i_batch][col_end] = input_ids[i_batch][col_end]
-                input_ids[i_batch][col_end] = self.dataset.TOKENS['MASK']
+                input_ids[i_batch][col_end] = self.dataset.TOKENS[self.mask_scheme]
                 col_mask[self.concat_col][i_batch][col_end] = 0
                 col_mask[self.dataset.special_id][i_batch][col_end] = 1
-            if not self.is_training:
+            if self.is_testing:
                 batch['mask_index'] = torch.tensor(mask_index)
         else:
             self.random_mask(batch, self.concat_col)
@@ -83,21 +86,16 @@ class Bert4RecTask(BaseMLMTask):
     def produce_output(self, model_output: BertOutput, **kwargs):
         return self._produce_output(model_output.last_hidden_state)
 
-    def test__left2right(self, sample, model, metric_pool):
-        from utils.dictifier import Dictifier
-        if not getattr(self, 'dictifier', None):
-            self.dictifier = Dictifier(aggregator=torch.tensor)
-
+    def test__left2right(self, sample, model, metric_pool, dictifier):
         ground_truth = sample[self.pred_items]
         argsorts = []
 
         sample[self.concat_col] = sample[self.known_items]
-        del sample[self.known_items], sample[self.pred_items]
 
         for index in range(len(sample[self.pred_items])):
             sample[self.concat_col].append(0)
-            sample = self.dataset.build_format_data(sample)
-            batch = self.dictifier([sample])
+            batch = dictifier([self.dataset.build_format_data(sample)])
+            batch = self.rebuild_batch(batch)
 
             output = model(
                 batch=batch,

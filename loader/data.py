@@ -68,6 +68,7 @@ class Data:
                 inject_task=self.task_manager.injection_task,
                 **self.args.set.d,
             )
+            self.sets[mode].init()
 
         self.train_set = self.sets.get(self.TRAIN)
         self.dev_set = self.sets.get(self.DEV)

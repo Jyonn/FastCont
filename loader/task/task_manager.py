@@ -39,7 +39,7 @@ class TaskManager:
             self.tasks.append(task)
             if not task_config.only_initialization:
                 self.applied_task_indexes.append(len(self.tasks) - 1)
-            if task_config.injection:
+            if task.injection:
                 self.injection_task = task
 
             self.print(task_config.name, 'params:', params)

@@ -8,7 +8,8 @@ from utils.transformers_adaptor import Seq2SeqModelOutput
 
 class EncoderMLMTask(BaseMLMTask):
     name = 'en-mlm'
-    mask_scheme = 'E-MASK'
+    mask_scheme = 'E-MASK_{en-col}'
+    mask_col_ph = '{en-col}'
     dataset: BartDataset
     cls_module = BartClassificationModule
 
@@ -18,9 +19,6 @@ class EncoderMLMTask(BaseMLMTask):
     def init(self, **kwargs):
         super().init(**kwargs)
         self.col_order = self.get_col_order(self.dataset.encoder_order)
-
-    def get_expand_tokens(self):
-        return [self.mask_scheme + '_{en-col}']
 
     def rebuild_batch(self, batch):
         batch_ = batch

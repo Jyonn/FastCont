@@ -46,6 +46,7 @@ class Worker:
         self.auto_model.to(self.device)
         self.print(self.auto_model.model.config)
         self.save_model = self.auto_model
+        self.disable_tqdm = bool(self.exp.display.disable_tqdm)
 
         self.static_modes = ['export', 'dev', 'test']
         self.in_static_modes = self.exp.mode in self.static_modes or self.exp.mode.startswith('test')
@@ -118,7 +119,7 @@ class Worker:
             loader.start_epoch(epoch - self.exp.policy.epoch_start, self.exp.policy.epoch)
             self.auto_model.train()
 
-            for step, batch in enumerate(tqdm(loader)):
+            for step, batch in enumerate(tqdm(loader, disable=self.disable_tqdm)):
                 task = batch['task']
                 task_output = self.auto_model(
                     batch=batch,
@@ -163,7 +164,7 @@ class Worker:
         self.auto_model.eval()
         loader = self.data.get_loader(self.data.DEV, task).eval()
 
-        for step, batch in enumerate(tqdm(loader)):
+        for step, batch in enumerate(tqdm(loader, disable=self.disable_tqdm)):
             with torch.no_grad():
                 task_output = self.auto_model(
                     batch=batch,
@@ -192,7 +193,7 @@ class Worker:
         self.auto_model.eval()
         loader = self.data.get_loader(self.data.TEST, task).test()
 
-        for step, batch in enumerate(tqdm(loader)):
+        for batch in tqdm(loader, disable=self.disable_tqdm):
             with torch.no_grad():
                 output = self.auto_model(
                     batch=batch,
@@ -215,10 +216,12 @@ class Worker:
         self.auto_model.eval()
 
         test_depot = self.data.sets[self.data.TEST].depot
+        dictifier = Dictifier(aggregator=torch.stack)
+        task.test()
 
         with torch.no_grad():
-            for sample in test_depot:
-                task.test__left2right(sample, self.auto_model, metric_pool)
+            for sample in tqdm(test_depot, disable=self.disable_tqdm):
+                task.test__left2right(sample, self.auto_model, metric_pool, dictifier=dictifier)
 
         metric_pool.export()
         for metric_name, n in metric_pool.values:

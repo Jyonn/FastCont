@@ -44,6 +44,10 @@ class ModelDataset(Dataset):
 
         self.print = printer[(self.__class__.__name__, Bracket.CLASS, Color.MAGENTA)]
 
+    def init(self):
+        if self.injected_task:
+            self.injected_task.injector_init(self)
+
     """
     get raw sample
     """
@@ -52,7 +56,7 @@ class ModelDataset(Dataset):
         sample = self.depot[index]
 
         if self.injected_task:
-            sample = self.injected_task.dataset_injector(sample)
+            sample = self.injected_task.sample_injector(sample)
 
         return sample
 

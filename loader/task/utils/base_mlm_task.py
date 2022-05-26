@@ -13,7 +13,8 @@ from loader.task.utils.bert_classification import BertClassificationModule
 
 class BaseMLMTask(BaseTask, ABC):
     name = 'base-mlm'
-    mask_scheme = 'MASK'
+    mask_scheme = 'MASK_{col}'
+    mask_col_ph = '{col}'
     cls_module: Union[BertClassificationModule, BartClassificationModule]
     col_order: list
 
@@ -47,10 +48,10 @@ class BaseMLMTask(BaseTask, ABC):
         return list(filter(lambda col: col in self.apply_cols, origin_order))
 
     def get_expand_tokens(self):
-        return [self.mask_scheme + '_{col}']
+        return [self.mask_scheme]
 
     def get_mask_token(self, col_name):
-        return self.dataset.TOKENS[self.mask_scheme + '_' + col_name]
+        return self.dataset.TOKENS[self.mask_scheme.replace(self.mask_col_ph, col_name)]
 
     def prepare_batch(self, batch):
         input_ids = batch['input_ids']  # type: torch.Tensor

@@ -10,7 +10,7 @@ class CurriculumMLMTask(BaseCurriculumMLMTask):
     """
 
     name = 'cu-mlm'
-    mask_scheme = 'MASK'
+    # mask_scheme = 'MASK'
     dataset: BertDataset
     cls_module = BertClassificationModule
 

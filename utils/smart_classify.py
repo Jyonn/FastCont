@@ -20,6 +20,9 @@ class SmartClassify:
         def __setattr__(self, key, value):
             return
 
+        def __setitem__(self, key, value):
+            return
+
         def __bool__(self):
             return False
 
@@ -82,8 +85,11 @@ class SmartClassify:
         return self[item]
 
     def __setattr__(self, key, value):
+        self[key] = value
+
+    def __setitem__(self, key, value):
         if isinstance(value, dict):
-            value = SmartClassify(value)
+            value = Classify(value)
         self.d[key] = value
 
 

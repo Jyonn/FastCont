@@ -19,6 +19,7 @@ class TaskLoss:
 
 class BaseTask:
     name: str
+    injection = None
 
     def __init__(self):
         self.dataset = None  # type: Optional[ModelDataset]
@@ -32,6 +33,8 @@ class BaseTask:
         self.is_training = True
         self.is_validating = False
         self.is_testing = False
+
+        self.injection_modes = []
 
     """
     Display
@@ -95,8 +98,16 @@ class BaseTask:
     """
 
     # noinspection PyMethodMayBeStatic
-    def dataset_injector(self, sample):
+    def sample_injector(self, sample):
         return sample
+
+    def _injector_init(self, dataset):
+        pass
+
+    # noinspection PyMethodMayBeStatic
+    def injector_init(self, dataset):
+        if self.injection and dataset.mode in self.injection:
+            self._injector_init(dataset)
 
     """
     Embedding
