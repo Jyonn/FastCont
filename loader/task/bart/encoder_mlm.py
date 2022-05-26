@@ -14,10 +14,13 @@ class EncoderMLMTask(BaseMLMTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    def init(self, **kwargs):
+        super().init(**kwargs)
         self.col_order = self.get_col_order(self.dataset.encoder_order)
 
     def get_expand_tokens(self):
-        return [self.mask_scheme + '_' + self.dataset.EN_COL_PH]
+        return [self.mask_scheme + '_{en-col}']
 
     def rebuild_batch(self, batch):
         batch_ = batch

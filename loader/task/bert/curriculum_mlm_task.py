@@ -38,5 +38,13 @@ class CurriculumMLMTask(BaseCurriculumMLMTask):
     def produce_output(self, model_output: BertOutput, **kwargs):
         return self._produce_output(model_output.last_hidden_state)
 
-    def test__hit_rate(self):
-        return self.pred_items
+    def test__curriculum(self, batch, output, metric_pool):
+        mask_labels_col = batch['mask_labels_col']
+        indexes = batch['append_info']['index']
+        self._test__curriculum(
+            indexes=indexes,
+            mask_labels_col=mask_labels_col,
+            output=output,
+            metric_pool=metric_pool,
+            col_name=self.pred_items,
+        )

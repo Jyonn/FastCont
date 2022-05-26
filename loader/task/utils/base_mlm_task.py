@@ -47,7 +47,7 @@ class BaseMLMTask(BaseTask, ABC):
         return list(filter(lambda col: col in self.apply_cols, origin_order))
 
     def get_expand_tokens(self):
-        return [self.mask_scheme + '_' + self.dataset.COL_PH]
+        return [self.mask_scheme + '_{col}']
 
     def get_mask_token(self, col_name):
         return self.dataset.TOKENS[self.mask_scheme + '_' + col_name]
@@ -127,7 +127,7 @@ class BaseMLMTask(BaseTask, ABC):
         mask_labels = batch['mask_labels'].to(self.device)  # type: torch.Tensor
 
         total_loss = torch.tensor(0, dtype=torch.float).to(self.device)
-        for col_name in self.apply_cols:
+        for col_name in self.col_order:
             col_mask = mask_labels_col[col_name].to(self.device)  # type: torch.Tensor
             col_labels = torch.mul(col_mask, mask_labels) + \
                          torch.ones(mask_labels.shape, dtype=torch.long).to(self.device) * (col_mask - 1) * 100

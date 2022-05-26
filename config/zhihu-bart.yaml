@@ -13,11 +13,8 @@ data:
   shuffle: true
   filter:
     pred_items:
-      - len(x) >= 10
+      - len(x) >= 5
 set:
-  order:
-    - known_items
-    - pred_items
   encoder_order:
     - known_items
   decoder_order:
@@ -27,8 +24,8 @@ set:
     - user_id
     - index
 model_config:
+  encoder_layers: 3
+  decoder_layers: 3
+  encoder_attention_heads: 8
+  decoder_attention_heads: 8
   hidden_size: 64
-  num_hidden_layers: 3
-  num_attention_heads: 8
-
-embedding: []

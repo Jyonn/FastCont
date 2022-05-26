@@ -3,13 +3,11 @@ from UniTok import UniDep
 
 from torch.utils.data import Dataset
 
-from loader.task.base_task import BaseTask
 from utils.smart_printer import printer, Bracket, Color
 from utils.splitter import Splitter
 
 
 class ModelDataset(Dataset):
-
     depot: UniDep
 
     special_id = '__special_id'
@@ -27,7 +25,7 @@ class ModelDataset(Dataset):
             depot: UniDep,
             splitter: Splitter = None,
             mode=None,
-            inject_task: BaseTask = None,
+            inject_task=None,
             **kwargs,
     ):
         self.depot = depot

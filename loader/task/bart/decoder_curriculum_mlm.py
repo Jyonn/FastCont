@@ -17,10 +17,13 @@ class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
             **kwargs
     ):
         super(DecoderCurriculumMLMTask, self).__init__(**kwargs)
+
+    def init(self, **kwargs):
+        super().init(**kwargs)
         self.col_order = self.get_col_order(self.dataset.decoder_order)
 
     def get_expand_tokens(self):
-        return [self.mask_scheme + '_' + self.dataset.DE_COL_PH]
+        return [self.mask_scheme + '_{de-col}']
 
     def rebuild_batch(self, batch):
         batch_ = batch
@@ -39,5 +42,13 @@ class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
         batch = batch['decoder']
         return super().calculate_loss(batch, output, **kwargs)
 
-    def test__hit_rate(self):
-        return self.dataset.decoder_order[0]
+    def test__curriculum(self, batch, output, metric_pool):
+        mask_labels_col = batch['decoder']['mask_labels_col']
+        indexes = batch['append_info']['index']
+        self._test__curriculum(
+            indexes=indexes,
+            mask_labels_col=mask_labels_col,
+            output=output,
+            metric_pool=metric_pool,
+            col_name=self.dataset.decoder_order[0]
+        )

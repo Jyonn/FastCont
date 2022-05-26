@@ -1,20 +1,17 @@
 import argparse
 import os
-from typing import Dict, Union
 
-# import numpy as np
 import torch
 from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
-# from utils.transformers_adaptor import BertOutput
-
 from loader.data import Data
-from loader.task.bert.curriculum_mlm_task import CurriculumMLMTask
 from loader.task.base_task import BaseTask
-# from model.auto_bert import AutoBert
+from loader.task.bert.bert4rec_task import Bert4RecTask
 from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask
+from utils import metric
 from utils.config_initializer import init_config
+from utils.dictifier import Dictifier
 from utils.gpu import GPU
 from utils.random_seed import seeding
 from utils.smart_printer import SmartPrinter, printer, Color
@@ -184,64 +181,48 @@ class Worker:
         return avg_loss.item()
 
     def test__curriculum(self, task: BaseTask):
+        metric_pool = metric.MetricPool()
+        metric_pool.add(metric.OverlapRate())
+        metric_pool.add(metric.HitRate(), ns=self.exp.policy.n_metrics)
+        metric_pool.add(metric.Recall(), ns=self.exp.policy.n_metrics)
+        metric_pool.init()
+
         assert isinstance(task, BaseCurriculumMLMTask)
-        col_name = task.test__hit_rate()
 
         self.auto_model.eval()
         loader = self.data.get_loader(self.data.TEST, task).test()
-
-        overlap_rate_dict = dict()  # type: Dict[str, Union[list, float]]
-        hit_rate_dict = dict()  # type: Dict[str, Union[list, float]]
-        recall_dict = dict()  # type: Dict[str, Union[list, float]]
-        for n in self.exp.policy.n_metrics:
-            overlap_rate_dict[str(n)] = []
-            hit_rate_dict[str(n)] = []
-            recall_dict[str(n)] = []
-
-        max_n = max(self.exp.policy.n_metrics)
 
         for step, batch in enumerate(tqdm(loader)):
             with torch.no_grad():
                 output = self.auto_model(
                     batch=batch,
                     task=task,
-                )[col_name]
-                mask_labels_col = batch['decoder']['mask_labels_col']
-                indexes = batch['append_info']['index']
+                )
+                task.test__curriculum(batch, output, metric_pool)
 
-                col_mask = mask_labels_col[col_name]
+        metric_pool.export()
+        for metric_name, n in metric_pool.values:
+            self.print(f'{metric_name}@{n:%4d}: {metric_pool.values[(metric_name, n)]:%.4f}')
 
-                for i_batch in range(len(indexes)):
-                    argsorts = []
-                    for i_tok in range(task.dataset.max_sequence):
-                        if col_mask[i_batch][i_tok]:
-                            argsorts.append(
-                                torch.argsort(
-                                    output[i_batch][i_tok], descending=True).cpu().tolist()[:max_n])
-                        else:
-                            argsorts.append(None)
+    def test__left2right(self, task: BaseTask):
+        metric_pool = metric.MetricPool()
+        metric_pool.add(metric.OverlapRate())
+        metric_pool.add(metric.HitRate(), ns=self.exp.policy.n_metrics)
+        metric_pool.add(metric.Recall(), ns=self.exp.policy.n_metrics)
+        metric_pool.init()
 
-                    ground_truth = set(task.depot.pack_sample(indexes[i_batch])[col_name])
+        assert isinstance(task, Bert4RecTask)
+        self.auto_model.eval()
 
-                    for n in self.exp.policy.n_metrics:
-                        candidates_per_channel = max(n // len(ground_truth), 1)
+        test_depot = self.data.sets[self.data.TEST].depot
 
-                        candidates = set()
-                        for i_tok in range(task.dataset.max_sequence):
-                            if col_mask[i_batch][i_tok]:
-                                candidates.update(argsorts[i_tok][:candidates_per_channel])
+        with torch.no_grad():
+            for sample in test_depot:
+                task.test__left2right(sample, self.auto_model, metric_pool)
 
-                        interaction = candidates.intersection(ground_truth)
-                        overlap_rate_dict[str(n)].append(len(candidates) / (candidates_per_channel * len(ground_truth)))
-                        hit_rate_dict[str(n)].append(int(bool(interaction)))
-                        recall_dict[str(n)].append(len(interaction) * 1.0 / n)
-
-        for n in self.exp.policy.n_metrics:
-            for d in [overlap_rate_dict, hit_rate_dict, recall_dict]:
-                d[str(n)] = torch.tensor(d[str(n)], dtype=torch.float).mean().item()
-            self.print('HR@%4d: %.4f' % (n, hit_rate_dict[str(n)]))
-            self.print('OR@%4d: %.4f' % (n, overlap_rate_dict[str(n)]))
-            self.print('RC@%4d: %.4f' % (n, recall_dict[str(n)]))
+        metric_pool.export()
+        for metric_name, n in metric_pool.values:
+            self.print(f'{metric_name}@{n:%4d}: {metric_pool.values[(metric_name, n)]:%.4f}')
 
     # def export(self):
     #     # bert_aggregator = BertAggregator(

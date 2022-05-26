@@ -1,24 +1,26 @@
-exp: naive-mlm-uni
-model: bart
+exp: bert4rec-bert
+model: bert
 mode: train
 freeze_emb: false
 tasks:
   -
-    name: en-mlm
-  -
-    name: de-mlm
+    name: bert4rec
     params:
-      curriculum_steps: 1
+      known_items: known_items
+      pred_items: pred_items
+      mask_last_ratio: 0.1
+    injection: true
+
 load:
   load_ckpt: null
   load_model_only: true
   relax_load: false
 policy:
   use_sep_token: true
-  pin_memory: true
-  epoch: 50
+  pin_memory: false
+  epoch: 100
   epoch_start: 0
-  lr: 0.0001
+  lr: 0.0002
   batch_size: 64
   accumulate_batch: 16
   device: gpu
