@@ -206,7 +206,6 @@ class Worker:
                 sample = copy.deepcopy(sample)
                 task.test__left2right(sample, self.auto_model, metric_pool, dictifier=dictifier)
 
-
     def test_center(self, handler, task: BaseTask):
         metric_pool = metric.MetricPool()
         metric_pool.add(metric.OverlapRate())

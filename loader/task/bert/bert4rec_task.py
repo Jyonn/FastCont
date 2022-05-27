@@ -92,7 +92,6 @@ class Bert4RecTask(BaseMLMTask):
 
         sample[self.concat_col] = sample[self.known_items]
 
-
         for index in range(len(sample[self.pred_items])):
             sample[self.concat_col].append(0)
             batch = dictifier([self.dataset.build_format_data(sample)])
