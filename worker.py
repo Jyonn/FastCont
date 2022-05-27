@@ -202,9 +202,31 @@ class Worker:
         dictifier = Dictifier(aggregator=torch.stack)
 
         with torch.no_grad():
+            index = 0
+            samples = []
             for sample in tqdm(test_depot, disable=self.disable_tqdm):
                 sample = copy.deepcopy(sample)
-                task.test__left2right(sample, self.auto_model, metric_pool, dictifier=dictifier)
+                samples.append(sample)
+                index += 1
+                if index >= self.exp.policy.batch_size:
+                    task.test__left2right(samples, self.auto_model, metric_pool, dictifier=dictifier)
+                    index = 0
+
+            if index:
+                task.test__left2right(samples, self.auto_model, metric_pool, dictifier=dictifier)
+
+    # def export__curriculum(self, task: BaseTask):
+    #     assert isinstance(task, BaseCurriculumMLMTask)
+    #
+    #     loader = self.data.get_loader(self.data.TEST, task).test()
+    #
+    #     for batch in tqdm(loader, disable=self.disable_tqdm):
+    #         with torch.no_grad():
+    #             output = self.auto_model(
+    #                 batch=batch,
+    #                 task=task,
+    #             )
+    #             task.test__curriculum(batch, output, metric_pool)
 
     def test_center(self, handler, task: BaseTask):
         metric_pool = metric.MetricPool()
