@@ -14,7 +14,8 @@ class TaskLoss:
         self.loss = loss
 
     def backward(self):
-        self.loss.backward()
+        if self.loss.requires_grad:
+            self.loss.backward()
 
 
 class BaseTask:

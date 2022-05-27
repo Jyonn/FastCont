@@ -15,6 +15,7 @@ class BaseCurriculumMLMTask(BaseMLMTask, ABC):
             weighted=False,
             curriculum_steps=10,
             weight_decay=1,
+            weight_center=None,
             **kwargs
     ):
         """
@@ -30,6 +31,7 @@ class BaseCurriculumMLMTask(BaseMLMTask, ABC):
 
         self.weighted = weighted
         self.weight_decay = weight_decay
+        self.weight_center = weight_center
 
     def start_epoch(self, current_epoch, total_epoch):  # 3 50
         if self.weighted:
@@ -43,7 +45,8 @@ class BaseCurriculumMLMTask(BaseMLMTask, ABC):
         super().prepare_batch(batch)
         if self.weighted:
             mask_ratio = random.random()
-            batch['weight'] = (1 - abs(self.current_mask_ratio - mask_ratio)) * self.weight_decay
+            weight_center = self.current_mask_ratio if self.weight_center is None else self.weight_center
+            batch['weight'] = (1 - abs(weight_center - mask_ratio)) * self.weight_decay
         else:
             mask_ratio = self.current_mask_ratio
             batch['weight'] = 1
