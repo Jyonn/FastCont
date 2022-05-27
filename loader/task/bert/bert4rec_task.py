@@ -86,34 +86,44 @@ class Bert4RecTask(BaseMLMTask):
     def produce_output(self, model_output: BertOutput, **kwargs):
         return self._produce_output(model_output.last_hidden_state)
 
-    def test__left2right(self, sample, model, metric_pool, dictifier):
-        ground_truth = sample[self.pred_items]
+    def test__left2right(self, samples, model, metric_pool, dictifier):
+        ground_truths = []
+        lengths = []
+
         argsorts = []
+        for sample in samples:
+            ground_truth = sample[self.pred_items]
+            lengths.append(len(sample[self.pred_items]))
+            sample[self.concat_col] = sample[self.known_items]
+            ground_truths.append(ground_truth)
+            argsorts.append([])
 
-        sample[self.concat_col] = sample[self.known_items]
-
-        for index in range(len(sample[self.pred_items])):
-            sample[self.concat_col].append(0)
-            batch = dictifier([self.dataset.build_format_data(sample)])
+        for index in range(max(lengths)):
+            for sample in samples:
+                sample[self.concat_col].append(0)
+            batch = dictifier([self.dataset.build_format_data(sample) for sample in samples])
             batch = self.rebuild_batch(batch)
 
-            output = model(
+            outputs = model(
                 batch=batch,
                 task=self,
-            )[self.concat_col][0]
-            mask_index = batch['mask_index'][0]
+            )[self.concat_col]
 
-            argsort = torch.argsort(output[mask_index], descending=True).cpu().tolist()[:metric_pool.max_n]
-            argsorts.append(argsort)
-            sample[self.concat_col][-1] = argsort[0]
+            for i_batch in range(len(samples)):
+                mask_index = batch['mask_index'][i_batch]
 
-        candidates = []
-        candidates_set = set()
-        for depth in range(metric_pool.max_n):
-            for index in range(len(sample[self.pred_items])):
-                candidates_set.add(argsorts[index][depth])
-                candidates.append(argsorts[index][depth])
-            if len(candidates_set) >= metric_pool.max_n and len(candidates) >= metric_pool.max_n:
-                break
+                argsort = torch.argsort(outputs[i_batch][mask_index], descending=True).cpu().tolist()[:metric_pool.max_n]
+                argsorts[i_batch].append(argsort)
+                samples[i_batch][self.concat_col][-1] = argsort[0]
 
-        metric_pool.push(candidates, candidates_set, ground_truth)
+        for i_batch, sample in enumerate(samples):
+            candidates = []
+            candidates_set = set()
+            for depth in range(metric_pool.max_n):
+                for index in range(len(sample[self.pred_items])):
+                    candidates_set.add(argsorts[index][depth])
+                    candidates.append(argsorts[index][depth])
+                if len(candidates_set) >= metric_pool.max_n and len(candidates) >= metric_pool.max_n:
+                    break
+
+            metric_pool.push(candidates, candidates_set, ground_truths[i_batch])
