@@ -1,0 +1,31 @@
+exp: curriculum-mlm-bert-cluster
+model: bert
+mode: train
+freeze_emb: false
+tasks:
+  -
+    name: cu-cluster-mlm
+    params:
+      weighted: true
+      weight_decay: 1
+      pred_items: p_local
+      known_items: k_local
+      pred_clusters: p_cluster
+      known_clusters: k_cluster
+      cluster_json: clusters/cluster_vocab.json
+
+load:
+  load_ckpt: null
+  load_model_only: true
+  relax_load: false
+policy:
+  pin_memory: false
+  epoch: 100
+  epoch_start: 0
+  lr: 0.0002
+  batch_size: 64
+  accumulate_batch: 16
+  device: gpu
+  n_warmup: 0
+  check_interval: -10
+  store_interval: 5

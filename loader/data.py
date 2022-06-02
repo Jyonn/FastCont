@@ -64,11 +64,9 @@ class Data:
                 splitter=self.splitter,
                 mode=mode,
                 expand_tokens=self.task_manager.expand_tokens,
-                use_sep_token=self.exp.policy.use_sep_token,
                 inject_task=self.task_manager.injection_task,
                 **self.args.set.d,
             )
-            self.sets[mode].init()
 
         self.train_set = self.sets.get(self.TRAIN)
         self.dev_set = self.sets.get(self.DEV)

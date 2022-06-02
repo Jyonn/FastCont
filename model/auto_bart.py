@@ -25,16 +25,12 @@ class AutoBart(AutoModel):
             batch=batch['encoder'],
             table_dict=self.embedding_tables,
             embedding_size=self.hidden_size,
-            # input_ids_key='encoder_input_ids',
-            # col_mask_key='encoder_col_mask',
         )
 
         decoder_input_embeds = task.get_embedding(
             batch=batch['decoder'],
             table_dict=self.embedding_tables,
             embedding_size=self.hidden_size,
-            # input_ids_key='decoder_input_ids',
-            # col_mask_key='decoder_col_mask',
         )
 
         bart_output = self.model(
@@ -46,4 +42,4 @@ class AutoBart(AutoModel):
             return_dict=True,
         )
 
-        return task.produce_output(bart_output)
+        return task.produce_output(bart_output, batch=batch)

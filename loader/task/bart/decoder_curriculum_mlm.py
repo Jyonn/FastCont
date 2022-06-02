@@ -1,5 +1,5 @@
 from loader.dataset.bart_dataset import BartDataset
-from loader.task.utils.bart_classification import BartClassificationModule
+from loader.task.utils.base_classifiers import BartClassifier
 
 from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask
 
@@ -11,7 +11,7 @@ class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
     mask_scheme = 'D-C-MASK_{de-col}'
     mask_col_ph = '{de-col}'
     dataset: BartDataset
-    cls_module = BartClassificationModule
+    cls_module = BartClassifier
 
     def __init__(
             self,
@@ -34,7 +34,7 @@ class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
         return batch_
 
     def produce_output(self, model_output: Seq2SeqModelOutput, **kwargs):
-        return self._produce_output(model_output.last_hidden_state)
+        return self._produce_output(model_output.last_hidden_state, **kwargs)
 
     def calculate_loss(self, batch, output, **kwargs):
         batch = batch['decoder']

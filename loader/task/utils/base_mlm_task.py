@@ -7,15 +7,14 @@ import torch
 from torch import nn
 
 from loader.task.base_task import BaseTask, TaskLoss
-from loader.task.utils.bart_classification import BartClassificationModule
-from loader.task.utils.bert_classification import BertClassificationModule
+from loader.task.utils.base_classifiers import BartClassifier, BertClassifier
 
 
 class BaseMLMTask(BaseTask, ABC):
     name = 'base-mlm'
     mask_scheme = 'MASK_{col}'
     mask_col_ph = '{col}'
-    cls_module: Union[BertClassificationModule, BartClassificationModule]
+    cls_module: Union[BertClassifier, BartClassifier]
     col_order: list
 
     def __init__(
@@ -24,7 +23,8 @@ class BaseMLMTask(BaseTask, ABC):
             mask_prob=0.8,
             random_prob=0.1,
             loss_pad=-100,
-            apply_cols=None
+            apply_cols=None,
+            **kwargs
     ):
         """
         :param select_prob: 选择要mask的比例
@@ -43,6 +43,7 @@ class BaseMLMTask(BaseTask, ABC):
         self.loss_fct = nn.CrossEntropyLoss()
 
     def get_col_order(self, origin_order):
+        origin_order = list(map(lambda x: x[0] if isinstance(x, tuple) else x, origin_order))
         if not self.apply_cols:
             return copy.deepcopy(origin_order)
         return list(filter(lambda col: col in self.apply_cols, origin_order))
@@ -158,11 +159,15 @@ class BaseMLMTask(BaseTask, ABC):
                 continue
 
             vocab_size = self.depot.get_vocab_size(vocab, as_vocab=True)
-            module_dict[vocab] = self.cls_module(vocab, self.model_init.model_config, vocab_size)
+            module_dict[vocab] = self.cls_module(
+                config=self.model_init.model_config,
+                vocab_name=vocab,
+                vocab_size=vocab_size
+            )
             self.print(f'created')
         return nn.ModuleDict(module_dict)
 
-    def _produce_output(self, last_hidden_state):
+    def _produce_output(self, last_hidden_state, **kwargs):
         output_dict = dict()
         for col_name in self.col_order:
             vocab = self.depot.col_info[col_name].vocab

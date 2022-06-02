@@ -20,10 +20,14 @@ from utils.logger import Logger
 
 
 class Worker:
-    def __init__(self, project_args, project_exp, cuda=None):
+    def __init__(self, project_args, project_exp, cuda=None, display_batch=False):
         self.args = project_args
         self.exp = project_exp
         self.print = printer[('MAIN', '·', Color.CYAN)]
+
+        self.display_batch = display_batch
+        if self.display_batch:
+            self.exp.policy.batch_size = 1
 
         self.logging = Logger(self.args.store.log_path)
         SmartPrinter.logger = self.logging
@@ -67,10 +71,16 @@ class Worker:
 
             self.print('training params')
             total_memory = 0
+            cu_cluster_mlm = False
             for name, p in self.auto_model.named_parameters():  # type: str, torch.Tensor
                 total_memory += p.element_size() * p.nelement()
+                if 'cluster-mlm.decoder_layers' in name:
+                    cu_cluster_mlm = True
+                    continue
                 if p.requires_grad and not name.startswith('bert.'):
                     self.print(name, p.data.shape, p.data.get_device())
+            if cu_cluster_mlm:
+                self.print('Ignore cluster-mlm decoder layers')
             self.print('total memory usage:', total_memory / 1024 / 8)
 
         if not self.exp.load.super_load:
@@ -193,7 +203,7 @@ class Worker:
                     batch=batch,
                     task=task,
                 )
-                task.test__curriculum(batch, output, metric_pool)
+                task.t('curriculum', batch, output, metric_pool)
 
     def test__left2right(self, task: BaseTask, metric_pool: metric.MetricPool):
         assert isinstance(task, Bert4RecTask)
@@ -209,7 +219,7 @@ class Worker:
                 samples.append(sample)
                 index += 1
                 if index >= self.exp.policy.batch_size:
-                    task.test__left2right(samples, self.auto_model, metric_pool, dictifier=dictifier)
+                    task.t('left2right', samples, self.auto_model, metric_pool, dictifier=dictifier)
                     index = 0
 
             if index:
@@ -272,7 +282,21 @@ class Worker:
     #     save_path = os.path.join(self.args.store.ckpt_path, self.exp.save.feature_path)
     #     np.save(save_path, features.cpu().numpy(), allow_pickle=False)
 
+    def batch_displaying(self):
+        tasks = self.data.tasks
+        loader = self.data.get_loader(self.data.TRAIN, *tasks).train()
+        loader.start_epoch(0, self.exp.policy.epoch)
+        self.auto_model.train()
+
+        for batch in loader:
+            print(batch)
+            return
+
     def run(self):
+        if self.display_batch:
+            self.batch_displaying()
+            return
+
         # tasks = [self.data.pretrain_depot[task.name] for task in self.exp.tasks]
         tasks = self.data.tasks
 
@@ -318,12 +342,12 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--cuda', type=int, default=None)
+    parser.add_argument('--display_batch', type=int, default=0)
 
     args = parser.parse_args()
-
     config, exp = init_config(args.config, args.exp)
 
     seeding(2021)
 
-    worker = Worker(project_args=config, project_exp=exp, cuda=args.cuda)
+    worker = Worker(project_args=config, project_exp=exp, cuda=args.cuda, display_batch=args.display_batch)
     worker.run()

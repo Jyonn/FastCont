@@ -1,6 +1,7 @@
 from loader.task.bart.decoder_curriculum_mlm import DecoderCurriculumMLMTask
 from loader.task.bart.encoder_mlm import EncoderMLMTask
 from loader.task.bert.bert4rec_task import Bert4RecTask
+from loader.task.bert.curriculum_cluster_mlm_task import CurriculumClusterMLMTask
 from loader.task.bert.curriculum_mlm_task import CurriculumMLMTask
 from loader.task.non_task import NonTask
 from utils.smart_printer import printer
@@ -13,6 +14,7 @@ class TaskManager:
 
         # BERT-based
         CurriculumMLMTask,
+        CurriculumClusterMLMTask,
         Bert4RecTask,
 
         # BART-based

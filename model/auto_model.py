@@ -33,7 +33,7 @@ class AutoModel(nn.Module):
         self.model = model_class(self.model_init.model_config)  # use compatible code
         self.embedding_tables = self.model_init.get_embedding_tables()
         self.extra_modules = self.task_initializer.get_extra_modules()
-        self.print('Extra Modules', self.extra_modules)
+        # self.print('Extra Modules', self.extra_modules)
 
     def forward(self, batch, task: Union[str, BaseTask]):
         raise NotImplementedError

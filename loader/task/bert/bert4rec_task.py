@@ -5,8 +5,9 @@ import torch
 from torch import nn
 
 from loader.dataset.bert_dataset import BertDataset
+from loader.dataset.order import Order
 from loader.task.utils.base_mlm_task import BaseMLMTask
-from loader.task.utils.bert_classification import BertClassificationModule
+from loader.task.utils.base_classifiers import BertClassifier
 from utils.transformers_adaptor import BertOutput
 
 
@@ -18,7 +19,7 @@ class Bert4RecTask(BaseMLMTask):
     name = 'bert4rec'
     mask_scheme = 'MASK'
     dataset: BertDataset
-    cls_module = BertClassificationModule
+    cls_module = BertClassifier
     injection = ['train', 'dev']
 
     def __init__(
@@ -45,7 +46,7 @@ class Bert4RecTask(BaseMLMTask):
 
     def _injector_init(self, dataset):
         # not only one dataset is required to be initialized
-        dataset.order = [self.concat_col]
+        dataset.order = Order([self.concat_col])
 
     def sample_injector(self, sample):
         sample[self.concat_col] = sample[self.known_items] + sample[self.pred_items]

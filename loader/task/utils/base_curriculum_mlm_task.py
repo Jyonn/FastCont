@@ -55,7 +55,7 @@ class BaseCurriculumMLMTask(BaseMLMTask, ABC):
             batch['weight'] = 1
 
     def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:
-        return super(BaseCurriculumMLMTask, self).calculate_loss(
+        return super().calculate_loss(
             batch=batch,
             output=output,
             weight=batch['weight'],

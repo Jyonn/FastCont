@@ -114,36 +114,22 @@ class BaseTask:
     Embedding
     """
 
-    # noinspection PyMethodMayBeStatic
-    def _get_special_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
-        return table(matrix)
-
-    # noinspection PyMethodMayBeStatic
-    def _get_seg_embedding(self, matrix: torch.Tensor, table: nn.Embedding):
-        return table(matrix)
-
     def get_embedding(
         self,
         batch,
         table_dict: Dict[str, nn.Embedding],
         embedding_size: int,
-        input_ids_key='input_ids',
-        col_mask_key='col_mask'
     ):
-        input_ids = batch[input_ids_key].to(self.device)  # type: torch.Tensor
+        input_ids = batch['input_ids'].to(self.device)  # type: torch.Tensor
         input_embeds = torch.zeros(*input_ids.shape, embedding_size, dtype=torch.float).to(self.device)
 
-        for col_name in batch[col_mask_key]:
-            col_mask = batch[col_mask_key][col_name].to(self.device)  # type: torch.Tensor
+        for col_name in batch['col_mask']:
+            col_mask = batch['col_mask'][col_name].to(self.device)  # type: torch.Tensor
             matrix = torch.mul(input_ids, col_mask)
 
-            if col_name == self.dataset.special_id:
-                table = table_dict[col_name]
-                seg_embedding = self._get_special_seg_embedding(matrix, table).to(self.device)
-            else:
-                vocab = self.depot.col_info.d[col_name].vocab
-                table = table_dict[vocab]
-                seg_embedding = self._get_seg_embedding(matrix, table).to(self.device)
+            vocab = col_name if col_name == self.dataset.special_id else self.depot.col_info[col_name].vocab
+            table = table_dict[vocab]
+            seg_embedding = table(matrix).to(self.device)
             col_mask = col_mask.unsqueeze(-1).repeat(1, 1, embedding_size).to(self.device)
             input_embeds += torch.mul(col_mask.float(), seg_embedding)
 

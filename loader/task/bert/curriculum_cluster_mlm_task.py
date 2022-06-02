@@ -1,29 +1,26 @@
 from loader.dataset.bert_dataset import BertDataset
+from loader.task.utils.base_cluster_mlm_task import BaseClusterMLMTask
 from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask
-from loader.task.utils.base_classifiers import BertClassifier
+from loader.task.utils.base_classifiers import BertClusterClassifier
 from utils.transformers_adaptor import BertOutput
 
 
-class CurriculumMLMTask(BaseCurriculumMLMTask):
+class CurriculumClusterMLMTask(BaseCurriculumMLMTask, BaseClusterMLMTask):
     """
     MLM task for ListCont
     """
 
-    name = 'cu-mlm'
+    name = 'cu-cluster-mlm'
     # mask_scheme = 'MASK'
     dataset: BertDataset
-    cls_module = BertClassifier
+    cls_module = BertClusterClassifier
 
     def __init__(
             self,
-            known_items='known_items',
-            pred_items='pred_items',
             **kwargs,
     ):
-        super(CurriculumMLMTask, self).__init__(**kwargs)
+        super(CurriculumClusterMLMTask, self).__init__(**kwargs)
 
-        self.known_items = known_items
-        self.pred_items = pred_items
         self.col_order = [self.known_items, self.pred_items]
 
     def rebuild_batch(self, batch):
@@ -33,10 +30,12 @@ class CurriculumMLMTask(BaseCurriculumMLMTask):
             self.random_mask(batch, self.known_items)
         self.left2right_mask(batch, self.pred_items)
 
+        self.update_clusters(batch)
+
         return batch
 
     def produce_output(self, model_output: BertOutput, **kwargs):
-        return self._produce_output(model_output.last_hidden_state)
+        return self._produce_output(model_output.last_hidden_state, **kwargs)
 
     def test__curriculum(self, batch, output, metric_pool):
         mask_labels_col = batch['mask_labels_col']

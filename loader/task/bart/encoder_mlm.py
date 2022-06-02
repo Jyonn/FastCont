@@ -1,5 +1,5 @@
 from loader.dataset.bart_dataset import BartDataset
-from loader.task.utils.bart_classification import BartClassificationModule
+from loader.task.utils.base_classifiers import BartClassifier
 
 from loader.task.utils.base_mlm_task import BaseMLMTask
 
@@ -11,7 +11,7 @@ class EncoderMLMTask(BaseMLMTask):
     mask_scheme = 'E-MASK_{en-col}'
     mask_col_ph = '{en-col}'
     dataset: BartDataset
-    cls_module = BartClassificationModule
+    cls_module = BartClassifier
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

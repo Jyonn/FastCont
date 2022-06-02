@@ -37,4 +37,4 @@ class AutoBert(AutoModel):
 
         # self.print('bert output device', bert_output.last_hidden_state.get_device())
 
-        return task.produce_output(bert_output)
+        return task.produce_output(bert_output, batch=batch)

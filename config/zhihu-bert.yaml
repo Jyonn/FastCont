@@ -22,6 +22,8 @@ set:
     - list_id
     - user_id
     - index
+  use_sep_token: true
+  use_cls_token: true
 model_config:
   hidden_size: 64
   num_hidden_layers: 3
