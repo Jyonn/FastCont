@@ -3,6 +3,8 @@ from torch import nn
 from transformers import BartConfig, BertConfig
 from transformers.activations import ACT2FN
 
+from utils.smart_printer import printer, Color
+
 
 class TransformLayer(nn.Module):
     def __init__(
@@ -19,7 +21,7 @@ class TransformLayer(nn.Module):
         else:
             self.LayerNorm = nn.LayerNorm(hidden_size, eps=layer_norm_eps)
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states) -> torch.Tensor:
         hidden_states = self.transform(hidden_states)
         hidden_states = self.transform_act_fn(hidden_states)
         hidden_states = self.LayerNorm(hidden_states)
@@ -37,7 +39,7 @@ class DecoderLayer(nn.Module):
         self.bias = nn.Parameter(torch.zeros(vocab_size), requires_grad=True)
         self.decoder.bias = self.bias
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states) -> torch.Tensor:
         return self.decoder(hidden_states)
 
 
@@ -53,6 +55,8 @@ class BaseClassifier(nn.Module):
             layer_norm_eps=None,
     ):
         super(BaseClassifier, self).__init__()
+
+        self.print = printer[(self.__class__.__name__, '-', Color.YELLOW)]
 
         self.transform_layer = TransformLayer(
             hidden_size=hidden_size,
@@ -115,6 +119,8 @@ class ClusterClassifier(nn.Module):
         self.n_clusters = len(cluster_vocabs)
         self.hidden_size = hidden_size
 
+        self.print = printer[(self.__class__.__name__, '-', Color.YELLOW)]
+
         self.transform_layer = TransformLayer(
             hidden_size=hidden_size,
             activation_function=activation_function,
@@ -135,7 +141,7 @@ class ClusterClassifier(nn.Module):
         :param last_hidden_states: torch.Tensor([batch_size, sequence_length, hidden_size])
         """
 
-        hidden_states = self.transform_layer(last_hidden_states)
+        hidden_states = self.transform_layer(last_hidden_states)  # type: torch.Tensor
         predictions = []
 
         for i_cluster in range(self.n_clusters):

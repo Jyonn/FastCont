@@ -39,7 +39,9 @@ class BaseClusterMLMTask(BaseMLMTask, ABC):
     def init(self, **kwargs):
         super().init(**kwargs)
         self.cluster_vocabs = json.load(open(os.path.join(self.depot.store_dir, self.cluster_json)))
-        self.print('Cluster 0 vocab size', self.cluster_vocabs[0])
+
+    def get_embedding(self, **kwargs):
+        return super().get_embedding(**kwargs, enable_attrs=False)
 
     def update_clusters(self, batch):
         for col_name, cluster in self.col_cluster_dict.items():
@@ -55,8 +57,7 @@ class BaseClusterMLMTask(BaseMLMTask, ABC):
 
         mask_labels = batch['mask_labels'].to(self.device)  # type: torch.Tensor
 
-        total_loss = []
-
+        total_loss = torch.tensor(0, dtype=torch.float).to(self.device)
         for col_name, cluster in self.col_cluster_dict.items():
             mask_labels_col = batch['mask_labels_col'][col_name].to(self.device)
             col_mask = batch['col_mask'][col_name].to(self.device)
@@ -70,13 +71,13 @@ class BaseClusterMLMTask(BaseMLMTask, ABC):
 
                 cluster_masked_elements = ((attr_labels == i_cluster) * masked_elements).to(self.device)
                 cluster_labels = torch.masked_select(mask_labels, cluster_masked_elements).to(self.device)
-                total_loss.append(self.loss_fct(
+
+                loss = self.loss_fct(
                     output[col_name][i_cluster],
                     cluster_labels
-                ))
+                )
+                total_loss += loss * weight
 
-        total_loss = torch.tensor(total_loss).mean().to(self.device)
-        total_loss *= weight
         return TaskLoss(loss=total_loss)
 
     def _init_extra_module(self):

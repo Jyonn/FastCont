@@ -119,19 +119,29 @@ class BaseTask:
         batch,
         table_dict: Dict[str, nn.Embedding],
         embedding_size: int,
+        enable_attrs: bool = True,
     ):
         input_ids = batch['input_ids'].to(self.device)  # type: torch.Tensor
         input_embeds = torch.zeros(*input_ids.shape, embedding_size, dtype=torch.float).to(self.device)
 
         for col_name in batch['col_mask']:
             col_mask = batch['col_mask'][col_name].to(self.device)  # type: torch.Tensor
-            matrix = torch.mul(input_ids, col_mask)
+            col_mask_ = col_mask.unsqueeze(-1).float()
+            vocab = col_name if col_name == self.dataset.special_id else self.depot.get_vocab(col_name)
+            atom_items = [(input_ids, vocab)]
 
-            vocab = col_name if col_name == self.dataset.special_id else self.depot.col_info[col_name].vocab
-            table = table_dict[vocab]
-            seg_embedding = table(matrix).to(self.device)
-            col_mask = col_mask.unsqueeze(-1).repeat(1, 1, embedding_size).to(self.device)
-            input_embeds += torch.mul(col_mask.float(), seg_embedding)
+            if col_name in batch['attr_ids'] and enable_attrs:
+                for attr_name in batch['attr_ids'][col_name]:
+                    atom_items.append((
+                        batch['attr_ids'][col_name][attr_name].to(self.device),
+                        self.depot.get_vocab(attr_name)
+                    ))
+
+            for atom_inputs, atom_vocab in atom_items:
+                matrix = torch.mul(atom_inputs, col_mask)
+                table = table_dict[atom_vocab]
+                embedding = table(matrix).to(self.device)
+                input_embeds += torch.mul(col_mask_, embedding)
 
         return input_embeds
 

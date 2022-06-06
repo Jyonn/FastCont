@@ -347,7 +347,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config, exp = init_config(args.config, args.exp)
 
-    seeding(2021)
+    seeding(2022)
 
     worker = Worker(project_args=config, project_exp=exp, cuda=args.cuda, display_batch=args.display_batch)
     worker.run()
