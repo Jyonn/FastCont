@@ -1,7 +1,7 @@
-dataset: zhihu-n10
+dataset: zhihu-n100
 store:
   data_dir: data/ListContUni/{dataset}
-  save_dir: saving/{dataset}-cluster/{model}-E{hidden_size}/
+  save_dir: saving/{dataset}/{model}-E{hidden_size}/
 data:
   split:
     train:
@@ -12,12 +12,12 @@ data:
       weight: 1
   shuffle: true
   filter:
-    p_local:
+    p_cluster:
       - len(x) >= 5
 set:
   order:
-    - [k_cluster, k_global, k_local]
-    - [p_cluster, p_global, p_local]
+    - [k_cluster, k_global]
+    - [p_cluster, p_global]
   append:
     - index
   use_sep_token: true

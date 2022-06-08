@@ -2,6 +2,7 @@ from typing import Union
 
 import torch
 
+from loader.task.base_batch import BertBatch
 from model.auto_model import AutoModel
 from utils.transformers_adaptor import BertModel, BertOutput
 
@@ -14,9 +15,9 @@ class AutoBert(AutoModel):
     def __init__(self, **kwargs):
         super(AutoBert, self).__init__(model_class=BertModel, **kwargs)
 
-    def forward(self, batch, task: Union[str, BaseTask]):
-        attention_mask = batch['attention_mask'].to(self.device)  # type: torch.Tensor # [B, S]
-        segment_ids = batch['segment_ids'].to(self.device)  # type: torch.Tensor # [B, S]
+    def forward(self, batch: BertBatch, task: Union[str, BaseTask]):
+        attention_mask = batch.attention_mask.to(self.device)  # type: torch.Tensor # [B, S]
+        segment_ids = batch.segment_ids.to(self.device)  # type: torch.Tensor # [B, S]
 
         if isinstance(task, str):
             task = self.task_initializer[task]

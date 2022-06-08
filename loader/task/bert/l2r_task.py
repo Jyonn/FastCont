@@ -9,7 +9,8 @@ from transformers.activations import ACT2FN
 from loader.dataset.bert_dataset import BertDataset
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.base_task import BaseTask, TaskLoss
+from loader.task.base_task import BaseTask
+from loader.task.base_loss import TaskLoss
 from utils.smart_printer import printer
 
 
@@ -49,7 +50,7 @@ class L2RTask(BaseTask):
 
         self.loss_fct = nn.CrossEntropyLoss()
 
-    def rebuild_batch(self, batch):
+    def _rebuild_batch(self, batch):
         input_ids = batch['input_ids']  # type: torch.Tensor
         col_mask = batch['col_mask']  # type: Dict[str, torch.Tensor]
         attention_mask = batch['attention_mask']  # type: torch.Tensor
@@ -100,7 +101,7 @@ class L2RTask(BaseTask):
         last_hidden_state = model_output.last_hidden_state
         return self.extra_module(last_hidden_state)
 
-    def calculate_loss(self, batch, output, **kwargs):
+    def _calculate_loss(self, batch, output, **kwargs):
         embedding_tables = kwargs['model'].embedding_tables
         vocab_name = self.depot.get_vocab(self.apply_col)
         embeddings = embedding_tables[vocab_name]  # type: nn.Embedding

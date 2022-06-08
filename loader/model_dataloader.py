@@ -4,6 +4,7 @@ from typing import List
 from torch.utils.data import DataLoader
 
 from loader.dataset.model_dataset import ModelDataset
+from loader.task.base_batch import BaseBatch
 from loader.task.base_task import BaseTask
 
 
@@ -44,8 +45,8 @@ class ModelDataLoader(DataLoader):
             try:
                 batch = next(iterator)
                 task = random.choice(self.tasks)
-                batch = task.rebuild_batch(batch)
-                batch['task'] = task
+                batch = task.rebuild_batch(batch)  # type: BaseBatch
+                batch.task = task
                 yield batch
             except StopIteration:
                 return

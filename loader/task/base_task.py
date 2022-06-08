@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Union, Type
 
 import torch
 from UniTok import UniDep
@@ -6,21 +6,15 @@ from torch import nn
 
 from loader.dataset.model_dataset import ModelDataset
 from loader.init.model_init import ModelInit
+from loader.task.base_batch import BertBatch, BartBatch
+from loader.task.base_loss import TaskLoss
 from utils.smart_printer import printer, Color
-
-
-class TaskLoss:
-    def __init__(self, loss: torch.Tensor):
-        self.loss = loss
-
-    def backward(self):
-        if self.loss.requires_grad:
-            self.loss.backward()
 
 
 class BaseTask:
     name: str
     injection = None
+    batcher: Union[Type[BertBatch], Type[BartBatch]]
 
     def __init__(self):
         self.dataset = None  # type: Optional[ModelDataset]
@@ -91,8 +85,13 @@ class BaseTask:
     def _init_extra_module(self):
         raise NotImplementedError
 
-    def rebuild_batch(self, batch):
+    def _rebuild_batch(self, batch):
         raise NotImplementedError
+
+    def rebuild_batch(self, batch):
+        batch = self.batcher(batch)
+        batch = self._rebuild_batch(batch)
+        return batch
 
     """
     Inject dataset
@@ -119,23 +118,34 @@ class BaseTask:
         batch,
         table_dict: Dict[str, nn.Embedding],
         embedding_size: int,
-        enable_attrs: bool = True,
+        enable_attrs: Union[bool, set] = True,
     ):
-        input_ids = batch['input_ids'].to(self.device)  # type: torch.Tensor
+        input_ids = batch.input_ids.to(self.device)  # type: torch.Tensor
         input_embeds = torch.zeros(*input_ids.shape, embedding_size, dtype=torch.float).to(self.device)
 
-        for col_name in batch['col_mask']:
-            col_mask = batch['col_mask'][col_name].to(self.device)  # type: torch.Tensor
+        if isinstance(enable_attrs, bool):
+            applied_attrs = set()
+            if enable_attrs:
+                for col_name in batch.col_mask:
+                    if col_name in batch.attr_ids and enable_attrs:
+                        for attr_name in batch.attr_ids[col_name]:
+                            applied_attrs.add(attr_name)
+        else:
+            enable_attrs, applied_attrs = True, enable_attrs
+
+        for col_name in batch.col_mask:
+            col_mask = batch.col_mask[col_name].to(self.device)  # type: torch.Tensor
             col_mask_ = col_mask.unsqueeze(-1).float()
             vocab = col_name if col_name == self.dataset.special_id else self.depot.get_vocab(col_name)
             atom_items = [(input_ids, vocab)]
 
-            if col_name in batch['attr_ids'] and enable_attrs:
-                for attr_name in batch['attr_ids'][col_name]:
-                    atom_items.append((
-                        batch['attr_ids'][col_name][attr_name].to(self.device),
-                        self.depot.get_vocab(attr_name)
-                    ))
+            if col_name in batch.attr_ids and enable_attrs:
+                for attr_name in batch.attr_ids[col_name]:
+                    if attr_name in applied_attrs:
+                        atom_items.append((
+                            batch.attr_ids[col_name][attr_name].to(self.device),
+                            self.depot.get_vocab(attr_name)
+                        ))
 
             for atom_inputs, atom_vocab in atom_items:
                 matrix = torch.mul(atom_inputs, col_mask)
@@ -148,8 +158,12 @@ class BaseTask:
     def produce_output(self, model_output, **kwargs):
         raise NotImplementedError
 
-    def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:
+    def _calculate_loss(self, batch, output, **kwargs) -> TaskLoss:
         raise NotImplementedError
+
+    def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:
+        # batch = self.batcher(batch)
+        return self._calculate_loss(batch, output, **kwargs)
 
     def t(self, channel, *args, **kwargs):
         return self.__getattr__(f'test__{channel}')(*args, **kwargs)

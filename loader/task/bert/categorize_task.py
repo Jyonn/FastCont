@@ -3,7 +3,8 @@ from torch import nn
 from transformers import BertConfig
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.base_task import BaseTask, TaskLoss
+from loader.task.base_task import BaseTask
+from loader.task.base_loss import TaskLoss
 
 
 class ClassificationModule(nn.Module):
@@ -32,7 +33,7 @@ class CategorizeTask(BaseTask):
         self.loss_fct = nn.CrossEntropyLoss()
         self.cat_col = cat_col
 
-    def rebuild_batch(self, batch):
+    def _rebuild_batch(self, batch):
         return batch
 
     def _init_extra_module(self):
@@ -43,7 +44,7 @@ class CategorizeTask(BaseTask):
     def produce_output(self, model_output: BertOutput, **kwargs):
         return model_output.last_hidden_state
 
-    def calculate_loss(self, batch, output, **kwargs):
+    def _calculate_loss(self, batch, output, **kwargs):
         cat_labels = batch['append_info'][self.cat_col].to(self.device)  # type: torch.Tensor
         loss = self.loss_fct(
             self.extra_module(output),

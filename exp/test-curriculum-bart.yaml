@@ -19,8 +19,7 @@ load:
   ckpt_base_path: curriculum-mlm-bart
   epochs: "map(lambda x: 5 * x + 4, list(range(2)))"
 policy:
-  use_sep_token: true
-  pin_memory: true
+  pin_memory: false
   batch_size: 64
   device: gpu
   n_metrics: [10, 30, 50]

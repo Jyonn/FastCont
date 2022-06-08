@@ -1,7 +1,7 @@
 from loader.dataset.bart_dataset import BartDataset
 from loader.task.utils.base_classifiers import BartClassifier
 
-from loader.task.utils.base_mlm_task import BaseMLMTask
+from loader.task.utils.base_mlm_task import BaseMLMTask, MLMBartBatch
 
 from utils.transformers_adaptor import Seq2SeqModelOutput
 
@@ -12,6 +12,7 @@ class EncoderMLMTask(BaseMLMTask):
     mask_col_ph = '{en-col}'
     dataset: BartDataset
     cls_module = BartClassifier
+    batcher = MLMBartBatch
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -20,20 +21,16 @@ class EncoderMLMTask(BaseMLMTask):
         super().init(**kwargs)
         self.col_order = self.get_col_order(self.dataset.encoder_order)
 
-    def rebuild_batch(self, batch):
-        batch_ = batch
-        batch = batch['encoder']
-
-        self.prepare_batch(batch)
+    def _rebuild_batch(self, batch: MLMBartBatch):
+        self.prepare_batch(batch.encoder)
 
         for col_name in self.col_order:
-            self.random_mask(batch, col_name)
+            self.random_mask(batch.encoder, col_name)
 
-        return batch_
+        return batch
 
     def produce_output(self, model_output: Seq2SeqModelOutput, **kwargs):
         return self._produce_output(model_output.encoder_last_hidden_state)
 
-    def calculate_loss(self, batch, output, **kwargs):
-        batch = batch['encoder']
-        return super().calculate_loss(batch, output, **kwargs)
+    def _calculate_loss(self, batch: MLMBartBatch, output, **kwargs):
+        return super()._calculate_loss(batch.encoder, output, **kwargs)

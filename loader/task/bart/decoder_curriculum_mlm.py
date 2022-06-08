@@ -1,7 +1,7 @@
 from loader.dataset.bart_dataset import BartDataset
 from loader.task.utils.base_classifiers import BartClassifier
 
-from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask
+from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask, CurriculumMLMBartBatch
 
 from utils.transformers_adaptor import Seq2SeqModelOutput
 
@@ -12,6 +12,7 @@ class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
     mask_col_ph = '{de-col}'
     dataset: BartDataset
     cls_module = BartClassifier
+    batcher = CurriculumMLMBartBatch
 
     def __init__(
             self,
@@ -23,22 +24,19 @@ class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
         super().init(**kwargs)
         self.col_order = self.get_col_order(self.dataset.decoder_order)
 
-    def rebuild_batch(self, batch):
-        batch_ = batch
-        batch = batch['decoder']
-
-        self.prepare_batch(batch)
+    def _rebuild_batch(self, batch: CurriculumMLMBartBatch):
+        self.prepare_batch(batch.decoder)
 
         for col_name in self.col_order:
-            self.left2right_mask(batch, col_name)
-        return batch_
+            self.left2right_mask(batch.decoder, col_name)
+
+        return batch
 
     def produce_output(self, model_output: Seq2SeqModelOutput, **kwargs):
         return self._produce_output(model_output.last_hidden_state, **kwargs)
 
-    def calculate_loss(self, batch, output, **kwargs):
-        batch = batch['decoder']
-        return super().calculate_loss(batch, output, **kwargs)
+    def _calculate_loss(self, batch: CurriculumMLMBartBatch, output, **kwargs):
+        return super()._calculate_loss(batch.decoder, output, **kwargs)
 
     def test__curriculum(self, batch, output, metric_pool):
         mask_labels_col = batch['decoder']['mask_labels_col']

@@ -1,28 +1,25 @@
-exp: curriculum-mlm-bert-cluster
+exp: test-curriculum
+mode: test__curriculum
 model: bert
-mode: train
 freeze_emb: false
 tasks:
   -
     name: cu-cluster-mlm
     params:
       weighted: false
+      curriculum_steps: 1
       weight_decay: 1
-      curriculum_steps: 20
       cluster_json: clusters/cluster_vocab.json
-
 load:
   load_ckpt: null
-  load_model_only: true
+  load_model_only: false
   relax_load: false
+  super_load: true
+  ckpt_base_path: curriculum-mlm-bert-cluster
+#  epochs: "map(lambda x: 5 * x + 4, list(range(6)))"
+  epochs: "[4]"
 policy:
   pin_memory: false
-  epoch: 100
-  epoch_start: 0
-  lr: 0.001
   batch_size: 256
-  accumulate_batch: 4
   device: gpu
-  n_warmup: 600
-  check_interval: -2
-  store_interval: 5
+  n_metrics: [10, 30, 50]

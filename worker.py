@@ -7,7 +7,9 @@ from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
 from loader.data import Data
+from loader.task.base_batch import BaseBatch
 from loader.task.base_task import BaseTask
+from loader.task.base_loss import TaskLoss, LossDepot
 from loader.task.bert.bert4rec_task import Bert4RecTask
 from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask
 from utils import metric
@@ -20,6 +22,10 @@ from utils.logger import Logger
 
 
 class Worker:
+    """
+    Integrator, preparing, initializing, and accepting different tasks
+    """
+
     def __init__(self, project_args, project_exp, cuda=None, display_batch=False):
         self.args = project_args
         self.exp = project_exp
@@ -113,8 +119,18 @@ class Worker:
         if self.exp.load.load_ckpt:
             self._attempt_loading(self.exp.load.load_ckpt)
 
-    def log_interval(self, epoch, step, task: BaseTask, loss):
-        self.print[f'epoch {epoch}'](f"step {step}, task {task.name}, loss {loss.item():.4f}")
+    def log_interval(self, epoch, step, task: BaseTask, loss: TaskLoss):
+        components = [f'step {step}', f'task {task.name}']
+        for loss_name, loss_tensor in loss.get_loss_dict().items():
+            if loss_name.endswith('loss') and isinstance(loss_tensor, torch.Tensor):
+                components.append(f'{loss_name} {loss_tensor.item():.4f}')
+        self.print[f'epoch {epoch}'](', '.join(components))
+
+    def log_epoch(self, epoch, task: BaseTask, loss_depot: LossDepot):
+        components = [f'task {task.name}']
+        for loss_name, loss_value in loss_depot.depot.items():
+            components.append(f'{loss_name} {loss_value:.4f}')
+        self.print[f'epoch {epoch}'](', '.join(components))
 
     def train(self, *tasks: BaseTask):
         self.print('Start Training')
@@ -130,8 +146,8 @@ class Worker:
             loader.start_epoch(epoch - self.exp.policy.epoch_start, self.exp.policy.epoch)
             self.auto_model.train()
 
-            for step, batch in enumerate(tqdm(loader, disable=self.disable_tqdm)):
-                task = batch['task']
+            for step, batch in enumerate(tqdm(loader, disable=self.disable_tqdm)):  # type: int, BaseBatch
+                task = batch.task
                 task_output = self.auto_model(
                     batch=batch,
                     task=task,
@@ -150,14 +166,14 @@ class Worker:
                 if self.exp.policy.check_interval:
                     if self.exp.policy.check_interval < 0:  # step part
                         if (step + 1) % max(train_steps // (-self.exp.policy.check_interval), 1) == 0:
-                            self.log_interval(epoch, step, task, loss.loss)
+                            self.log_interval(epoch, step, task, loss)
                     else:
                         if (step + 1) % self.exp.policy.check_interval == 0:
-                            self.log_interval(epoch, step, task, loss.loss)
+                            self.log_interval(epoch, step, task, loss)
 
             for task in tasks:
-                avg_loss = self.dev(task=task)
-                self.print[f'epoch {epoch}'](f"task {task.name}, loss {avg_loss:.4f}")
+                loss_depot = self.dev(task=task)
+                self.log_epoch(epoch, task, loss_depot)
 
             if (epoch + 1) % self.exp.policy.store_interval == 0:
                 epoch_path = os.path.join(self.args.store.ckpt_path, 'epoch_{}.bin'.format(epoch))
@@ -171,9 +187,9 @@ class Worker:
         self.print('Training Ended')
 
     def dev(self, task: BaseTask, steps=None):
-        avg_loss = torch.tensor(.0).to(self.device)
         self.auto_model.eval()
         loader = self.data.get_loader(self.data.DEV, task).eval()
+        loss_depot = LossDepot()
 
         for step, batch in enumerate(tqdm(loader, disable=self.disable_tqdm)):
             with torch.no_grad():
@@ -183,14 +199,12 @@ class Worker:
                 )
 
                 loss = task.calculate_loss(batch, task_output, model=self.auto_model)
-                avg_loss += loss.loss
+                loss_depot.add(loss)
 
             if steps and step >= steps:
                 break
 
-        avg_loss /= len(self.data.dev_set) / self.exp.policy.batch_size
-
-        return avg_loss.item()
+        return loss_depot.summarize()
 
     def test__curriculum(self, task: BaseTask, metric_pool: metric.MetricPool):
         assert isinstance(task, BaseCurriculumMLMTask)
@@ -345,9 +359,14 @@ if __name__ == "__main__":
     parser.add_argument('--display_batch', type=int, default=0)
 
     args = parser.parse_args()
-    config, exp = init_config(args.config, args.exp)
 
+    config, exp = init_config(args.config, args.exp)
     seeding(2022)
 
-    worker = Worker(project_args=config, project_exp=exp, cuda=args.cuda, display_batch=args.display_batch)
+    worker = Worker(
+        project_args=config,
+        project_exp=exp,
+        cuda=args.cuda,
+        display_batch=args.display_batch
+    )
     worker.run()

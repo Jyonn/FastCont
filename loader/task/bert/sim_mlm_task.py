@@ -8,7 +8,8 @@ from transformers import BertConfig
 from transformers.activations import ACT2FN
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.base_task import BaseTask, TaskLoss
+from loader.task.base_task import BaseTask
+from loader.task.base_loss import TaskLoss
 from utils.smart_printer import printer
 
 
@@ -80,7 +81,7 @@ class SimMLMTask(BaseTask):
             return tok, tok, False
         return tok, self.loss_pad, False
 
-    def rebuild_batch(self, batch):
+    def _rebuild_batch(self, batch):
         input_ids = batch['input_ids']  # type: torch.Tensor
         col_mask = batch['col_mask']  # type: Dict[str, torch.Tensor]
         batch_size = int(input_ids.shape[0])
@@ -147,7 +148,7 @@ class SimMLMTask(BaseTask):
             output_dict[col_name] = classification_module(last_hidden_state)
         return output_dict
 
-    def calculate_loss(self, batch, output, **kwargs):
+    def _calculate_loss(self, batch, output, **kwargs):
         mask_labels_col = batch['mask_labels_col']
         mask_labels = batch['mask_labels'].to(self.device)  # type: torch.Tensor
 

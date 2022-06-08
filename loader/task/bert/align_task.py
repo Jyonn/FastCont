@@ -5,7 +5,8 @@ from torch import nn
 from transformers import BertConfig
 from utils.transformers_adaptor import BertOutput
 
-from loader.task.base_task import BaseTask, TaskLoss
+from loader.task.base_task import BaseTask
+from loader.task.base_loss import TaskLoss
 from utils.dictifier import Dictifier
 
 
@@ -37,7 +38,7 @@ class AlignTask(BaseTask):
 
         self.dictifier = Dictifier(aggregator=torch.tensor)
 
-    def rebuild_batch(self, batch):
+    def _rebuild_batch(self, batch):
         batch_size = batch['input_ids'].shape[0]
         rebuilt_batch = []
         for _ in range(batch_size):
@@ -56,7 +57,7 @@ class AlignTask(BaseTask):
     def produce_output(self, model_output: BertOutput, **kwargs):
         return model_output.last_hidden_state
 
-    def calculate_loss(self, batch, output, **kwargs):
+    def _calculate_loss(self, batch, output, **kwargs):
         total_loss = torch.tensor(0, dtype=torch.float).to(self.device)
 
         align_labels = batch['append_info'][self.aligned_key].to(self.device)  # type: torch.Tensor

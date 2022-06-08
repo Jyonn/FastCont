@@ -13,18 +13,17 @@ tasks:
       pred_items: p_cluster
 
 load:
-  load_ckpt: null
+  load_ckpt: curriculum-mlm-bert/epoch_99.bin
   load_model_only: true
   relax_load: false
 policy:
-  use_sep_token: true
   pin_memory: false
   epoch: 100
-  epoch_start: 0
+  epoch_start: 100
   lr: 0.0005
   batch_size: 64
   accumulate_batch: 16
   device: gpu
-  n_warmup: 600
+  n_warmup: 0
   check_interval: -10
   store_interval: 5

@@ -53,7 +53,7 @@ class Bert4RecTask(BaseMLMTask):
         del sample[self.known_items], sample[self.pred_items]
         return sample
 
-    def rebuild_batch(self, batch):
+    def _rebuild_batch(self, batch):
         self.prepare_batch(batch)
 
         mask_last = np.random.uniform() < self.mask_last_ratio
@@ -103,7 +103,7 @@ class Bert4RecTask(BaseMLMTask):
             for sample in samples:
                 sample[self.concat_col].append(0)
             batch = dictifier([self.dataset.build_format_data(sample) for sample in samples])
-            batch = self.rebuild_batch(batch)
+            batch = self._rebuild_batch(batch)
 
             outputs = model(
                 batch=batch,

@@ -17,7 +17,7 @@ load:
 policy:
   use_sep_token: true
   pin_memory: false
-  epoch: 100
+  epoch: 5
   epoch_start: 0
   lr: 0.0005
   batch_size: 64

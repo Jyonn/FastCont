@@ -13,8 +13,8 @@ class NonTask(BaseTask):
     def produce_output(self, model_output: any, **kwargs):
         return model_output
 
-    def rebuild_batch(self, batch):
+    def _rebuild_batch(self, batch):
         return batch
 
-    def calculate_loss(self, batch, output, **kwargs):
+    def _calculate_loss(self, batch, output, **kwargs):
         pass

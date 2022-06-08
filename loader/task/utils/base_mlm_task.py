@@ -1,21 +1,39 @@
 import copy
 from abc import ABC
-from typing import Dict, Union
+from typing import Union, Optional, Type
 
 import numpy as np
 import torch
 from torch import nn
 
-from loader.task.base_task import BaseTask, TaskLoss
+from loader.dataset.order import Order
+from loader.task.base_batch import BertBatch, BartBatch
+from loader.task.base_task import BaseTask
+from loader.task.base_loss import TaskLoss
 from loader.task.utils.base_classifiers import BartClassifier, BertClassifier
+
+
+class MLMBertBatch(BertBatch):
+    def __init__(self, batch):
+        super(MLMBertBatch, self).__init__(batch=batch)
+        self.mask_labels = None  # type: Optional[torch.Tensor]
+        self.mask_labels_col = None  # type: Optional[torch.Tensor]
+        self.mask_ratio = None  # type: Optional[float]
+
+        self.register('mask_labels', 'mask_labels_col', 'mask_ratio')
+
+
+class MLMBartBatch(BartBatch):
+    batcher = MLMBertBatch
 
 
 class BaseMLMTask(BaseTask, ABC):
     name = 'base-mlm'
     mask_scheme = 'MASK_{col}'
     mask_col_ph = '{col}'
-    cls_module: Union[BertClassifier, BartClassifier]
+    cls_module: Union[Type[BertClassifier], Type[BartClassifier]]
     col_order: list
+    batcher: Union[Type[MLMBertBatch], Type[MLMBartBatch]]
 
     def __init__(
             self,
@@ -26,12 +44,6 @@ class BaseMLMTask(BaseTask, ABC):
             apply_cols=None,
             **kwargs
     ):
-        """
-        :param select_prob: 选择要mask的比例
-        :param mask_prob:
-        :param random_prob:
-        :param loss_pad:
-        """
         super(BaseMLMTask, self).__init__()
 
         self.select_prob = select_prob
@@ -42,11 +54,11 @@ class BaseMLMTask(BaseTask, ABC):
         self.apply_cols = apply_cols
         self.loss_fct = nn.CrossEntropyLoss()
 
-    def get_col_order(self, origin_order):
-        origin_order = list(map(lambda x: x[0] if isinstance(x, tuple) else x, origin_order))
+    def get_col_order(self, order: Order):
+        order = list(map(lambda x: x.name, order.order))
         if not self.apply_cols:
-            return copy.deepcopy(origin_order)
-        return list(filter(lambda col: col in self.apply_cols, origin_order))
+            return copy.deepcopy(order)
+        return list(filter(lambda col: col in self.apply_cols, order))
 
     def get_expand_tokens(self):
         return [self.mask_scheme]
@@ -54,13 +66,9 @@ class BaseMLMTask(BaseTask, ABC):
     def get_mask_token(self, col_name):
         return self.dataset.TOKENS[self.mask_scheme.replace(self.mask_col_ph, col_name)]
 
-    def prepare_batch(self, batch):
-        input_ids = batch['input_ids']  # type: torch.Tensor
-        col_mask = batch['col_mask']  # type: Dict[str, torch.Tensor]
-        batch_size = int(input_ids.shape[0])
-
-        batch['mask_labels'] = torch.ones(batch_size, self.dataset.max_sequence, dtype=torch.long) * self.loss_pad
-        batch['mask_labels_col'] = copy.deepcopy(col_mask)
+    def prepare_batch(self, batch: MLMBertBatch):
+        batch.mask_labels = torch.ones(batch.batch_size, self.dataset.max_sequence, dtype=torch.long) * self.loss_pad
+        batch.mask_labels_col = copy.deepcopy(batch.col_mask)
 
     def do_mask(self, mask, tok, vocab_size):
         tok = int(tok)
@@ -74,37 +82,28 @@ class BaseMLMTask(BaseTask, ABC):
             return tok, tok, False
         return tok, self.loss_pad, False
 
-    def random_mask(self, batch, col_name):
-        input_ids = batch['input_ids']  # type: torch.Tensor
-        col_mask = batch['col_mask']  # type: Dict[str, torch.Tensor]
-        mask_labels = batch['mask_labels']
-        batch_size = int(input_ids.shape[0])
+    def random_mask(self, batch: MLMBertBatch, col_name):
         vocab_size = self.depot.get_vocab_size(col_name)
 
-        for i_batch in range(batch_size):
+        for i_batch in range(batch.batch_size):
             for i_tok in range(self.dataset.max_sequence):
-                if col_mask[col_name][i_batch][i_tok]:
+                if batch.col_mask[col_name][i_batch][i_tok]:
                     input_id, mask_label, use_special_col = self.do_mask(
                         mask=self.get_mask_token(col_name),
-                        tok=input_ids[i_batch][i_tok],
+                        tok=batch.input_ids[i_batch][i_tok],
                         vocab_size=vocab_size
                     )
-                    input_ids[i_batch][i_tok] = input_id
-                    mask_labels[i_batch][i_tok] = mask_label
+                    batch.input_ids[i_batch][i_tok] = input_id
+                    batch.mask_labels[i_batch][i_tok] = mask_label
                     if use_special_col:
-                        col_mask[col_name][i_batch][i_tok] = 0
-                        col_mask[self.dataset.special_id][i_batch][i_tok] = 1
+                        batch.col_mask[col_name][i_batch][i_tok] = 0
+                        batch.col_mask[self.dataset.special_id][i_batch][i_tok] = 1
 
-    def left2right_mask(self, batch, col_name):
-        input_ids = batch['input_ids']  # type: torch.Tensor
-        col_mask = batch['col_mask']  # type: Dict[str, torch.Tensor]
-        mask_labels = batch['mask_labels']
-        batch_size = int(input_ids.shape[0])
-
-        for i_batch in range(batch_size):
+    def left2right_mask(self, batch: MLMBertBatch, col_name):
+        for i_batch in range(batch.batch_size):
             col_start, col_end = None, None
             for i_tok in range(self.dataset.max_sequence):
-                if col_mask[col_name][i_batch][i_tok]:
+                if batch.col_mask[col_name][i_batch][i_tok]:
                     if col_start is None:
                         col_start = i_tok
                     else:
@@ -112,35 +111,15 @@ class BaseMLMTask(BaseTask, ABC):
             col_end += 1
 
             if self.is_training:
-                mask_count = int((col_end - col_start) * batch['mask_ratio'])
+                mask_count = int((col_end - col_start) * batch.mask_ratio)
                 col_start = col_end - mask_count
 
             selected_tokens = slice(col_start, col_end)
 
-            mask_labels[i_batch][selected_tokens] = input_ids[i_batch][selected_tokens]
-            input_ids[i_batch][selected_tokens] = self.get_mask_token(col_name)
-            col_mask[col_name][i_batch][selected_tokens] = 0
-            col_mask[self.dataset.special_id][i_batch][selected_tokens] = 1
-
-    def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:
-        weight = kwargs.get('weight', 1)
-
-        mask_labels_col = batch['mask_labels_col']
-        mask_labels = batch['mask_labels'].to(self.device)  # type: torch.Tensor
-
-        total_loss = torch.tensor(0, dtype=torch.float).to(self.device)
-        for col_name in self.col_order:
-            col_mask = mask_labels_col[col_name].to(self.device)  # type: torch.Tensor
-            col_labels = torch.mul(col_mask, mask_labels) + \
-                         torch.ones(mask_labels.shape, dtype=torch.long).to(self.device) * (col_mask - 1) * 100
-            col_labels = col_labels.view(-1).to(self.device)
-            vocab_size = self.depot.get_vocab_size(col_name)
-            loss = self.loss_fct(
-                output[col_name].view(-1, vocab_size),
-                col_labels
-            )
-            total_loss += loss * weight
-        return TaskLoss(loss=total_loss)
+            batch.mask_labels[i_batch][selected_tokens] = batch.input_ids[i_batch][selected_tokens]
+            batch.input_ids[i_batch][selected_tokens] = self.get_mask_token(col_name)
+            batch.col_mask[col_name][i_batch][selected_tokens] = 0
+            batch.col_mask[self.dataset.special_id][i_batch][selected_tokens] = 1
 
     def _init_extra_module(self):
         module_dict = dict()
@@ -162,15 +141,36 @@ class BaseMLMTask(BaseTask, ABC):
             module_dict[vocab] = self.cls_module(
                 config=self.model_init.model_config,
                 vocab_name=vocab,
-                vocab_size=vocab_size
+                vocab_size=vocab_size,
             )
             self.print(f'created')
         return nn.ModuleDict(module_dict)
 
     def _produce_output(self, last_hidden_state, **kwargs):
         output_dict = dict()
-        for col_name in self.col_order:
-            vocab = self.depot.col_info[col_name].vocab
-            classification_module = self.extra_module[vocab]
-            output_dict[col_name] = classification_module(last_hidden_state)
+        for vocab_name in self.extra_module:
+            classification_module = self.extra_module[vocab_name]
+            output_dict[vocab_name] = classification_module(last_hidden_state)
         return output_dict
+
+    def _calculate_loss(self, batch: MLMBertBatch, output, **kwargs) -> TaskLoss:
+        weight = kwargs.get('weight', 1)
+
+        mask_labels = batch.mask_labels.to(self.device)  # type: torch.Tensor
+
+        total_loss = torch.tensor(0, dtype=torch.float).to(self.device)
+        for col_name in self.col_order:
+            vocab_name = self.depot.get_vocab(col_name)
+            vocab_size = self.depot.get_vocab_size(col_name)
+
+            col_mask = batch.mask_labels_col[col_name].to(self.device)  # type: torch.Tensor
+            col_labels = torch.mul(col_mask, mask_labels) + torch.ones(
+                mask_labels.shape, dtype=torch.long).to(self.device) * (1 - col_mask) * self.loss_pad
+            col_labels = col_labels.view(-1).to(self.device)
+
+            loss = self.loss_fct(
+                output[vocab_name].view(-1, vocab_size),
+                col_labels
+            )
+            total_loss += loss * weight
+        return TaskLoss(loss=total_loss)

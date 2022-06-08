@@ -1,4 +1,4 @@
-dataset: zhihu-n10
+dataset: zhihu-n2
 store:
   data_dir: data/ListContUni/{dataset}
   save_dir: saving/{dataset}-cluster/{model}-E{hidden_size}/

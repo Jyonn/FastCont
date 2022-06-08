@@ -1,5 +1,5 @@
 from loader.dataset.bert_dataset import BertDataset
-from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask
+from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask, CurriculumMLMBertBatch
 from loader.task.utils.base_classifiers import BertClassifier
 from utils.transformers_adaptor import BertOutput
 
@@ -13,6 +13,7 @@ class CurriculumMLMTask(BaseCurriculumMLMTask):
     # mask_scheme = 'MASK'
     dataset: BertDataset
     cls_module = BertClassifier
+    batcher = CurriculumMLMBertBatch
 
     def __init__(
             self,
@@ -26,7 +27,7 @@ class CurriculumMLMTask(BaseCurriculumMLMTask):
         self.pred_items = pred_items
         self.col_order = [self.known_items, self.pred_items]
 
-    def rebuild_batch(self, batch):
+    def _rebuild_batch(self, batch):
         self.prepare_batch(batch)
 
         if self.is_training:

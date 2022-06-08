@@ -1,14 +1,28 @@
 import random
 from abc import ABC
+from typing import Optional, Union, Type
 
 import torch
 
-from loader.task.base_task import TaskLoss
-from loader.task.utils.base_mlm_task import BaseMLMTask
+from loader.task.base_loss import TaskLoss
+from loader.task.utils.base_mlm_task import BaseMLMTask, MLMBertBatch, MLMBartBatch
+
+
+class CurriculumMLMBertBatch(MLMBertBatch):
+    def __init__(self, batch):
+        super(CurriculumMLMBertBatch, self).__init__(batch=batch)
+        self.weight = None  # type: Optional[float]
+
+        self.register('weight')
+
+
+class CurriculumMLMBartBatch(MLMBartBatch):
+    batcher = CurriculumMLMBertBatch
 
 
 class BaseCurriculumMLMTask(BaseMLMTask, ABC):
     name = 'base-curriculum-mlm'
+    batcher: Union[Type[CurriculumMLMBertBatch], Type[CurriculumMLMBartBatch]]
 
     def __init__(
             self,
@@ -41,29 +55,29 @@ class BaseCurriculumMLMTask(BaseMLMTask, ABC):
                 (int(current_epoch * self.curriculum_steps // total_epoch) + 1) * 1.0 / self.curriculum_steps
         self.print(f'set current mask ratio to {self.current_mask_ratio}')
 
-    def prepare_batch(self, batch):
+    def prepare_batch(self, batch: CurriculumMLMBertBatch):
         super().prepare_batch(batch)
         if self.weighted:
             mask_ratio = random.random()
             weight_center = self.current_mask_ratio if self.weight_center is None else self.weight_center
-            batch['weight'] = (1 - abs(weight_center - mask_ratio)) * self.weight_decay
+            batch.weight = (1 - abs(weight_center - mask_ratio)) * self.weight_decay
         else:
             mask_ratio = self.current_mask_ratio
-            batch['weight'] = 1
-        batch['mask_ratio'] = mask_ratio
+            batch.weight = 1
+        batch.mask_ratio = mask_ratio
         if not self.is_training:
-            batch['weight'] = 1
+            batch.weight = 1
 
-    def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:
-        return super().calculate_loss(
+    def _calculate_loss(self, batch: CurriculumMLMBertBatch, output, **kwargs) -> TaskLoss:
+        return super()._calculate_loss(
             batch=batch,
             output=output,
-            weight=batch['weight'],
+            weight=batch.weight,
             **kwargs
         )
 
     def _test__curriculum(self, indexes, mask_labels_col, output, metric_pool, col_name):
-        output = output[col_name]
+        output = output[self.depot.get_vocab(col_name)]
         col_mask = mask_labels_col[col_name]
 
         for i_batch in range(len(indexes)):
