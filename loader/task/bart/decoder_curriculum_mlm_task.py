@@ -35,8 +35,8 @@ class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
     def produce_output(self, model_output: Seq2SeqModelOutput, **kwargs):
         return self._produce_output(model_output.last_hidden_state, **kwargs)
 
-    def _calculate_loss(self, batch: CurriculumMLMBartBatch, output, **kwargs):
-        return super()._calculate_loss(batch.decoder, output, **kwargs)
+    def calculate_loss(self, batch: CurriculumMLMBartBatch, output, **kwargs):
+        return super().calculate_loss(batch.decoder, output, **kwargs)
 
     def test__curriculum(self, batch, output, metric_pool):
         mask_labels_col = batch['decoder']['mask_labels_col']

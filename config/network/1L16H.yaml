@@ -1,7 +1,7 @@
-dataset: zhihu-n2
+dataset: zhihu-n10
 store:
-  data_dir: data/ListContUni/{dataset}
-  save_dir: saving/{dataset}-cluster/{model}-E{hidden_size}/
+  data_dir: data/ListContUni/{config.dataset}
+  save_dir: saving/{config.dataset}/{exp.model}-{config.model_config.num_hidden_layers}L{config.model_config.num_attention_heads}H/
 data:
   split:
     train:
@@ -24,5 +24,5 @@ set:
   use_cls_token: true
 model_config:
   hidden_size: 64
-  num_hidden_layers: 3
-  num_attention_heads: 8
+  num_hidden_layers: 1
+  num_attention_heads: 16

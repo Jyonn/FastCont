@@ -1,4 +1,4 @@
-exp: test-curriculum
+exp: test-curriculum-bert-single-naive
 mode: test__curriculum
 model: bert
 freeze_emb: false
@@ -8,23 +8,23 @@ tasks:
     params:
       weighted: false
       weight_decay: 1
-      curriculum_steps: 20
+      curriculum_steps: 1
       known_items: k_global
       pred_items: p_global
+
 load:
   load_ckpt: null
   load_model_only: false
   relax_load: false
   super_load: true
-  ckpt_base_path: curriculum-mlm-bert
-#  epochs: "[99]"
-#  epochs: "map(lambda x: 5 * x + 54, list(range(10)))"
+  ckpt_base_path: curriculum-bert-single-naive
   epochs:
-    interval: 10
-    until: 200
-    start: 100
+    interval: 5
+    until: 100
+    start: 0
+  wait_load: true
 policy:
   pin_memory: false
   batch_size: 256
   device: gpu
-  n_metrics: [10, 30, 50]
+  n_metrics: [5, 10]

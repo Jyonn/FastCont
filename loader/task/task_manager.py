@@ -1,5 +1,7 @@
-from loader.task.bart.decoder_curriculum_mlm import DecoderCurriculumMLMTask
-from loader.task.bart.encoder_mlm import EncoderMLMTask
+from loader.task.bart.decoder_curriculum_cluster_mlm_task import DecoderCurriculumClusterMLMTask
+from loader.task.bart.decoder_curriculum_mlm_task import DecoderCurriculumMLMTask
+from loader.task.bart.encoder_cluster_mlm_task import EncoderClusterMLMTask
+from loader.task.bart.encoder_mlm_task import EncoderMLMTask
 from loader.task.bert.bert4rec_task import Bert4RecTask
 from loader.task.bert.curriculum_cluster_mlm_task import CurriculumClusterMLMTask
 from loader.task.bert.curriculum_mlm_task import CurriculumMLMTask
@@ -20,6 +22,8 @@ class TaskManager:
         # BART-based
         EncoderMLMTask,
         DecoderCurriculumMLMTask,
+        EncoderClusterMLMTask,
+        DecoderCurriculumClusterMLMTask,
     ]
 
     TASKS = {task.name: task for task in TASKS_LIST}

@@ -5,12 +5,7 @@ from utils.transformers_adaptor import BertOutput
 
 
 class CurriculumMLMTask(BaseCurriculumMLMTask):
-    """
-    MLM task for ListCont
-    """
-
     name = 'cu-mlm'
-    # mask_scheme = 'MASK'
     dataset: BertDataset
     cls_module = BertClassifier
     batcher = CurriculumMLMBertBatch
@@ -39,9 +34,9 @@ class CurriculumMLMTask(BaseCurriculumMLMTask):
     def produce_output(self, model_output: BertOutput, **kwargs):
         return self._produce_output(model_output.last_hidden_state)
 
-    def test__curriculum(self, batch, output, metric_pool):
-        mask_labels_col = batch['mask_labels_col']
-        indexes = batch['append_info']['index']
+    def test__curriculum(self, batch: CurriculumMLMBertBatch, output, metric_pool):
+        mask_labels_col = batch.mask_labels_col
+        indexes = batch.append_info['index']
         self._test__curriculum(
             indexes=indexes,
             mask_labels_col=mask_labels_col,

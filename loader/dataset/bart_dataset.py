@@ -7,8 +7,8 @@ class BartDataset(ModelDataset):
     DE_COL_PH = '{de-col}'
 
     @staticmethod
-    def _generate_expand_tokens(placeholder: str, token: str, col_list):
-        return [token.replace(placeholder, col_name) for col_name in col_list]
+    def _generate_expand_tokens(placeholder: str, token: str, cols):
+        return [token.replace(placeholder, col.name) for col in cols]
 
     def _format_expand_tokens(self, expand_tokens):
         expand_tokens_ = []

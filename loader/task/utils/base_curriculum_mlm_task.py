@@ -68,8 +68,8 @@ class BaseCurriculumMLMTask(BaseMLMTask, ABC):
         if not self.is_training:
             batch.weight = 1
 
-    def _calculate_loss(self, batch: CurriculumMLMBertBatch, output, **kwargs) -> TaskLoss:
-        return super()._calculate_loss(
+    def calculate_loss(self, batch: CurriculumMLMBertBatch, output, **kwargs) -> TaskLoss:
+        return super().calculate_loss(
             batch=batch,
             output=output,
             weight=batch.weight,

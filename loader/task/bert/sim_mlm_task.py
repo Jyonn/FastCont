@@ -148,7 +148,7 @@ class SimMLMTask(BaseTask):
             output_dict[col_name] = classification_module(last_hidden_state)
         return output_dict
 
-    def _calculate_loss(self, batch, output, **kwargs):
+    def calculate_loss(self, batch, output, **kwargs):
         mask_labels_col = batch['mask_labels_col']
         mask_labels = batch['mask_labels'].to(self.device)  # type: torch.Tensor
 

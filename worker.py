@@ -1,6 +1,8 @@
 import argparse
 import copy
+import json
 import os
+import time
 
 import torch
 from tqdm import tqdm
@@ -13,9 +15,11 @@ from loader.task.base_loss import TaskLoss, LossDepot
 from loader.task.bert.bert4rec_task import Bert4RecTask
 from loader.task.utils.base_curriculum_mlm_task import BaseCurriculumMLMTask
 from utils import metric
-from utils.config_initializer import init_config
+from utils.config_initializer import ConfigInitializer
 from utils.dictifier import Dictifier
+from utils.epoch import Epoch
 from utils.gpu import GPU
+from utils.monitor import Monitor
 from utils.random_seed import seeding
 from utils.smart_printer import SmartPrinter, printer, Color
 from utils.logger import Logger
@@ -102,8 +106,15 @@ class Worker:
 
     def _attempt_loading(self, path):
         load_path = os.path.join(self.args.store.save_dir, path)
-        self.print("load model from exp {}".format(load_path))
-        state_dict = torch.load(load_path, map_location=self.device)
+        while True:
+            self.print("load model from exp {}".format(load_path))
+            try:
+                state_dict = torch.load(load_path, map_location=self.device)
+                break
+            except Exception as e:
+                if not self.exp.load.wait_load:
+                    raise e
+                time.sleep(60)
 
         model_ckpt = state_dict['model']
 
@@ -134,6 +145,17 @@ class Worker:
 
     def train(self, *tasks: BaseTask):
         self.print('Start Training')
+        if not self.exp.store:
+            monitor = Monitor(
+                ckpt_path=self.args.store.ckpt_path,
+                interval=self.exp.policy.store_interval,
+                super_store=False,
+            )
+        else:
+            monitor = Monitor(
+                ckpt_path=self.args.store.ckpt_path,
+                **self.exp.store.d
+            )
 
         train_steps = len(self.data.train_set) // self.exp.policy.batch_size
         accumulate_step = 0
@@ -171,20 +193,25 @@ class Worker:
                         if (step + 1) % self.exp.policy.check_interval == 0:
                             self.log_interval(epoch, step, task, loss)
 
+            loss_depots = dict()
             for task in tasks:
                 loss_depot = self.dev(task=task)
                 self.log_epoch(epoch, task, loss_depot)
+                loss_depots[task.name] = loss_depot.depot
 
-            if (epoch + 1) % self.exp.policy.store_interval == 0:
-                epoch_path = os.path.join(self.args.store.ckpt_path, 'epoch_{}.bin'.format(epoch))
-                state_dict = dict(
-                    model=self.auto_model.state_dict(),
-                    optimizer=self.m_optimizer.state_dict(),
-                    scheduler=self.m_scheduler.state_dict(),
-                )
-                torch.save(state_dict, epoch_path)
+            state_dict = dict(
+                model=self.auto_model.state_dict(),
+                optimizer=self.m_optimizer.state_dict(),
+                scheduler=self.m_scheduler.state_dict(),
+            )
+            monitor.push(
+                epoch=epoch,
+                loss_depots=loss_depots,
+                state_dict=state_dict,
+            )
 
         self.print('Training Ended')
+        monitor.export()
 
     def dev(self, task: BaseTask, steps=None):
         self.auto_model.eval()
@@ -205,6 +232,28 @@ class Worker:
                 break
 
         return loss_depot.summarize()
+
+    def test__curriculum_time(self, task: BaseTask, metric_pool):
+        assert isinstance(task, BaseCurriculumMLMTask)
+        rounds = 5
+
+        loader = self.data.get_loader(self.data.TEST, task).test()
+        start = time.time()
+        for _ in range(rounds):
+            start_ = time.time()
+            for batch in loader:
+                with torch.no_grad():
+                    output = self.auto_model(
+                        batch=batch,
+                        task=task,
+                    )
+                    task.t('curriculum', batch, output, metric_pool)
+            end_ = time.time()
+            self.print((end_ - start_) * 1000 / len(loader))
+
+        end = time.time()
+        self.print('Average Time:', (end - start) * 1000 / rounds / len(loader))
+        exit(0)
 
     def test__curriculum(self, task: BaseTask, metric_pool: metric.MetricPool):
         assert isinstance(task, BaseCurriculumMLMTask)
@@ -256,7 +305,7 @@ class Worker:
         metric_pool = metric.MetricPool()
         metric_pool.add(metric.OverlapRate())
         metric_pool.add(metric.HitRate(), ns=self.exp.policy.n_metrics)
-        metric_pool.add(metric.Recall(), ns=self.exp.policy.n_metrics)
+        metric_pool.add(metric.NDCG(), ns=self.exp.policy.n_metrics)
         metric_pool.init()
 
         self.auto_model.eval()
@@ -303,7 +352,7 @@ class Worker:
         self.auto_model.train()
 
         for batch in loader:
-            print(batch)
+            self.print(batch.export())
             return
 
     def run(self):
@@ -329,8 +378,6 @@ class Worker:
             display_value = tuple(display_value)
             display_string = display_string.format(*display_value)
             self.print(display_string)
-        # elif self.exp.mode == 'export':
-        #     self.export()
         elif self.exp.mode.startswith('test'):
             handler = object.__getattribute__(self, self.exp.mode)
 
@@ -340,8 +387,27 @@ class Worker:
                         continue
                     self.test_center(handler, task)
             else:
-                epochs = eval(self.exp.load.epochs)
-                for epoch in epochs:
+                if self.exp.load.auto_load:
+                    epochs = json.load(open(os.path.join(
+                        self.args.store.save_dir,
+                        self.exp.load.ckpt_base_path,
+                        'candidates.json'
+                    )))
+                else:
+                    epochs = self.exp.load.epochs
+                if isinstance(epochs, str):
+                    epochs = eval(epochs)
+                if isinstance(epochs, list):
+                    interval, until, start = None, None, None
+                else:
+                    epochs, interval, until, start = None, epochs.interval, epochs.until, epochs.start
+                epochs = Epoch(epochs, interval, until, start)
+
+                while True:
+                    epoch = epochs.next()
+                    if epoch == -1:
+                        break
+
                     ckpt_base_path = self.exp.load.ckpt_base_path
                     self._attempt_loading(os.path.join(ckpt_base_path, f'epoch_{epoch}.bin'))
 
@@ -360,8 +426,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config, exp = init_config(args.config, args.exp)
-    seeding(2022)
+    config, exp = ConfigInitializer.init(args.config, args.exp)
+    seeding(2021)
 
     worker = Worker(
         project_args=config,

@@ -1,0 +1,31 @@
+exp: curriculum-bert-double-naive
+model: bert
+mode: train
+freeze_emb: false
+tasks:
+  -
+    name: cu-cluster-mlm
+    params:
+      weighted: false
+      weight_decay: 1
+      curriculum_steps: 1
+      cluster_json: clusters/cluster_vocab.json
+      grad_cluster_loss: true
+      grad_local_loss: true
+
+load:
+#  load_ckpt: curriculum-mlm-bert-cluster/epoch_99.bin
+  load_ckpt: null
+  load_model_only: true
+  relax_load: false
+policy:
+  pin_memory: false
+  epoch: 100
+  epoch_start: 0
+  lr: 0.01
+  batch_size: 64
+  accumulate_batch: 1
+  device: gpu
+  n_warmup: 600
+  check_interval: -2
+  store_interval: 5

@@ -1,4 +1,4 @@
-exp: curriculum-mlm-bert
+exp: curriculum-bert-single-naive
 model: bert
 mode: train
 freeze_emb: false
@@ -8,21 +8,22 @@ tasks:
     params:
       weighted: false
       weight_decay: 1
-      curriculum_steps: 20
+      curriculum_steps: 1
+      known_items: k_global
+      pred_items: p_global
 
 load:
   load_ckpt: null
-  load_model_only: true
+  load_model_only: false
   relax_load: false
 policy:
-  use_sep_token: true
   pin_memory: false
-  epoch: 5
+  epoch: 100
   epoch_start: 0
-  lr: 0.0005
+  lr: 0.008
   batch_size: 64
-  accumulate_batch: 16
+  accumulate_batch: 4
   device: gpu
   n_warmup: 600
-  check_interval: -10
+  check_interval: -2
   store_interval: 5

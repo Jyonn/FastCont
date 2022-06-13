@@ -1,5 +1,6 @@
-from typing import Dict, Union, List
+from typing import Dict, Union
 
+import numpy as np
 import torch
 
 
@@ -39,6 +40,46 @@ class OverlapRate(Metric):
         candidates = candidates[:n]
         candidates_set = set(candidates)
         return 1 - len(candidates_set) * 1.0 / len(candidates)
+
+
+class NDCG(Metric):
+    name = 'N '
+
+    @staticmethod
+    def get_dcg(scores):
+        return np.sum(
+            np.divide(
+                np.power(2, scores) - 1,
+                np.log2(np.arange(scores.shape[0], dtype=np.float32) + 2)
+            ), dtype=np.float32
+        )
+
+    @classmethod
+    def get_ndcg(cls, rank_list, pos_items):
+        relevance = np.ones_like(pos_items)
+        it2rel = {it: r for it, r in zip(pos_items, relevance)}
+        rank_scores = np.asarray([it2rel.get(it, 0.0) for it in rank_list], dtype=np.float32)
+
+        idcg = cls.get_dcg(relevance)
+
+        dcg = cls.get_dcg(rank_scores)
+
+        if dcg == 0.0:
+            return 0.0
+
+        ndcg = dcg / idcg
+        return ndcg
+
+    @classmethod
+    def calculate(cls, candidates: list, candidates_set: set, ground_truth: list, n, **kwargs):
+        candidates_ = []
+        for item in candidates:
+            if len(candidates_) >= n:
+                break
+            if item not in candidates_:
+                candidates_.append(item)
+        ground_truth = ground_truth[:n]
+        return cls.get_ndcg(candidates_, ground_truth)
 
 
 class MetricPool:

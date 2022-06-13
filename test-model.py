@@ -21,23 +21,35 @@ import os.path
 
 from UniTok import UniDep
 
-depot = UniDep(store_dir='data/ListContUni/zhihu-n1000')
-cluster_vocabs = json.load(open(os.path.join(depot.store_dir, 'clusters/cluster_vocab.json')))
+# depot = UniDep(store_dir='data/ListContUni/zhihu-n1000')
+# cluster_vocabs = json.load(open(os.path.join(depot.store_dir, 'clusters/cluster_vocab.json')))
+#
+#
+# count = 0
+# for sample in depot:
+#     d = dict(
+#         k_cluster='k_local',
+#         p_cluster='p_local',
+#     )
+#     for cluster_, local_ in d.items():
+#         # if len(sample[cluster_]) != len(sample[local_]):
+#         #     count += 1
+#         for i, v in enumerate(sample[cluster_]):
+#             if sample[local_][i] >= cluster_vocabs[v]:
+#                 count += 1
+#                 print(sample)
+#                 print(cluster_, i)
+#                 exit(0)
+# print(count)
 
 
-count = 0
-for sample in depot:
-    d = dict(
-        k_cluster='k_local',
-        p_cluster='p_local',
-    )
-    for cluster_, local_ in d.items():
-        # if len(sample[cluster_]) != len(sample[local_]):
-        #     count += 1
-        for i, v in enumerate(sample[cluster_]):
-            if sample[local_][i] >= cluster_vocabs[v]:
-                count += 1
-                print(sample)
-                print(cluster_, i)
-                exit(0)
-print(count)
+import random
+
+k = random.randint(1, 100)
+print(k)
+random.seed(2020)
+print(random.randint(1, 100))
+random.seed(k)
+print(random.randint(1, 100))
+print(random.randint(1, 100))
+print(random.randint(1, 100))

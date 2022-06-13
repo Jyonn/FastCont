@@ -57,7 +57,7 @@ class AlignTask(BaseTask):
     def produce_output(self, model_output: BertOutput, **kwargs):
         return model_output.last_hidden_state
 
-    def _calculate_loss(self, batch, output, **kwargs):
+    def calculate_loss(self, batch, output, **kwargs):
         total_loss = torch.tensor(0, dtype=torch.float).to(self.device)
 
         align_labels = batch['append_info'][self.aligned_key].to(self.device)  # type: torch.Tensor

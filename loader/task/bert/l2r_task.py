@@ -101,7 +101,7 @@ class L2RTask(BaseTask):
         last_hidden_state = model_output.last_hidden_state
         return self.extra_module(last_hidden_state)
 
-    def _calculate_loss(self, batch, output, **kwargs):
+    def calculate_loss(self, batch, output, **kwargs):
         embedding_tables = kwargs['model'].embedding_tables
         vocab_name = self.depot.get_vocab(self.apply_col)
         embeddings = embedding_tables[vocab_name]  # type: nn.Embedding

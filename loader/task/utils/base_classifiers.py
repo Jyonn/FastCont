@@ -48,7 +48,6 @@ class BaseClassifier(nn.Module):
 
     def __init__(
             self,
-            vocab_name,
             vocab_size,
             hidden_size,
             activation_function,
@@ -68,7 +67,19 @@ class BaseClassifier(nn.Module):
             vocab_size=vocab_size
         )
 
-        BaseClassifier.classifiers[vocab_name] = self
+    @classmethod
+    def create(cls, key, vocab_size, hidden_size, activation_function, layer_norm_eps=None):
+        if key in cls.classifiers:
+            return cls.classifiers[key]
+
+        classifier = cls(
+            vocab_size=vocab_size,
+            hidden_size=hidden_size,
+            activation_function=activation_function,
+            layer_norm_eps=layer_norm_eps,
+        )
+        cls.classifiers[key] = classifier
+        return classifier
 
     def forward(self, last_hidden_states):
         hidden_states = self.transform_layer(last_hidden_states)
@@ -77,14 +88,17 @@ class BaseClassifier(nn.Module):
 
 
 class BartClassifier(BaseClassifier):
-    def __init__(
-            self,
-            config: BartConfig,
-            vocab_name,
-            vocab_size,
+
+    @classmethod
+    def create(
+        cls,
+        config: BartConfig,
+        key,
+        vocab_size,
+        **kwargs
     ):
-        super(BartClassifier, self).__init__(
-            vocab_name=vocab_name,
+        return super().create(
+            key=key,
             vocab_size=vocab_size,
             hidden_size=config.d_model,
             activation_function=config.activation_function,
@@ -92,14 +106,16 @@ class BartClassifier(BaseClassifier):
 
 
 class BertClassifier(BaseClassifier):
-    def __init__(
-            self,
+    @classmethod
+    def create(
+            cls,
             config: BertConfig,
-            vocab_name,
+            key,
             vocab_size,
+            **kwargs
     ):
-        super(BertClassifier, self).__init__(
-            vocab_name=vocab_name,
+        return super().create(
+            key=key,
             vocab_size=vocab_size,
             hidden_size=config.hidden_size,
             activation_function=config.hidden_act,
@@ -108,6 +124,8 @@ class BertClassifier(BaseClassifier):
 
 
 class ClusterClassifier(nn.Module):
+    classifiers = dict()
+
     def __init__(
             self,
             cluster_vocabs,
@@ -134,6 +152,20 @@ class ClusterClassifier(nn.Module):
             ) for vocab_size in cluster_vocabs
         ])
 
+    @classmethod
+    def create(cls, key, cluster_vocabs, hidden_size, activation_function, layer_norm_eps=None):
+        if key in cls.classifiers:
+            return cls.classifiers[key]
+
+        classifier = cls(
+            cluster_vocabs=cluster_vocabs,
+            hidden_size=hidden_size,
+            activation_function=activation_function,
+            layer_norm_eps=layer_norm_eps,
+        )
+        cls.classifiers[key] = classifier
+        return classifier
+
     def forward(self, last_hidden_states: torch.Tensor, cluster_labels: torch.Tensor):
         """
 
@@ -156,12 +188,10 @@ class ClusterClassifier(nn.Module):
 
 
 class BartClusterClassifier(ClusterClassifier):
-    def __init__(
-            self,
-            cluster_vocabs,
-            config: BartConfig,
-    ):
-        super(BartClusterClassifier, self).__init__(
+    @classmethod
+    def create(cls, key, cluster_vocabs, config: BartConfig, **kwargs):
+        return super().create(
+            key=key,
             cluster_vocabs=cluster_vocabs,
             hidden_size=config.d_model,
             activation_function=config.activation_function,
@@ -169,12 +199,10 @@ class BartClusterClassifier(ClusterClassifier):
 
 
 class BertClusterClassifier(ClusterClassifier):
-    def __init__(
-            self,
-            cluster_vocabs,
-            config: BertConfig,
-    ):
-        super(BertClusterClassifier, self).__init__(
+    @classmethod
+    def create(cls, key, cluster_vocabs, config: BertConfig, **kwargs):
+        return super().create(
+            key=key,
             cluster_vocabs=cluster_vocabs,
             hidden_size=config.hidden_size,
             activation_function=config.hidden_act,

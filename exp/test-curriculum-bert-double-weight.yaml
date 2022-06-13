@@ -1,0 +1,31 @@
+exp: test-curriculum-bert-double-weight
+mode: test__curriculum
+model: bert
+freeze_emb: false
+tasks:
+  -
+    name: cu-cluster-mlm
+    params:
+      weighted: true
+      curriculum_steps: 20
+      weight_decay: 1
+      cluster_json: clusters/cluster_vocab.json
+load:
+  load_ckpt: null
+  load_model_only: false
+  relax_load: false
+  super_load: true
+  ckpt_base_path: curriculum-bert-double-weight-1.0
+  auto_load: true
+#  epochs: "map(lambda x: 5 * x + 54, list(range(10)))"
+  epochs: "[29, 69, 89, 99]"
+#  epochs:
+#    interval: 10
+#    until: 200
+#    start: 0
+  wait_load: true
+policy:
+  pin_memory: false
+  batch_size: 256
+  device: gpu
+  n_metrics: [5, 10]

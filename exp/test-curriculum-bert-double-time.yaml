@@ -1,0 +1,22 @@
+exp: test-curriculum-bert-double-time
+mode: test__curriculum_time
+model: bert
+freeze_emb: false
+tasks:
+  -
+    name: cu-cluster-mlm
+    params:
+      weighted: false
+      curriculum_steps: 1
+      weight_decay: 1
+      cluster_json: clusters/cluster_vocab.json
+load:
+  load_ckpt: null
+  load_model_only: true
+  relax_load: false
+  super_load: false
+policy:
+  pin_memory: false
+  batch_size: 1
+  device: gpu
+  n_metrics: [5, 10]

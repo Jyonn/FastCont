@@ -1,4 +1,4 @@
-exp: curriculum-mlm-bert
+exp: curriculum-bert-single-step-{exp.tasks[0].params.curriculum_steps}
 model: bert
 mode: train
 freeze_emb: false
@@ -9,21 +9,21 @@ tasks:
       weighted: false
       weight_decay: 1
       curriculum_steps: 20
-      known_items: k_cluster
-      pred_items: p_cluster
+      known_items: k_global
+      pred_items: p_global
 
 load:
-  load_ckpt: curriculum-mlm-bert/epoch_99.bin
-  load_model_only: true
+  load_ckpt: null
+  load_model_only: false
   relax_load: false
 policy:
   pin_memory: false
   epoch: 100
-  epoch_start: 100
-  lr: 0.0005
+  epoch_start: 0
+  lr: 0.008
   batch_size: 64
-  accumulate_batch: 16
+  accumulate_batch: 4
   device: gpu
-  n_warmup: 0
-  check_interval: -10
+  n_warmup: 600
+  check_interval: -2
   store_interval: 5

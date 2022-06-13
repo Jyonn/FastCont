@@ -48,6 +48,7 @@ class BartBatch(BaseBatch):
     def __init__(self, batch):
         super().__init__(batch=batch)
 
+        batch['encoder']['append_info'] = batch['decoder']['append_info'] = batch['append_info']
         self.encoder = self.batcher(batch['encoder'])
         self.decoder = self.batcher(batch['decoder'])
 

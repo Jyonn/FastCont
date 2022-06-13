@@ -1,4 +1,4 @@
-exp: test-curriculum
+exp: test-curriculum-bert-double-naive
 mode: test__curriculum
 model: bert
 freeze_emb: false
@@ -15,11 +15,16 @@ load:
   load_model_only: false
   relax_load: false
   super_load: true
-  ckpt_base_path: curriculum-mlm-bert-cluster
-#  epochs: "map(lambda x: 5 * x + 4, list(range(6)))"
-  epochs: "[4]"
+  ckpt_base_path: curriculum-bert-double-naive
+#  epochs: "map(lambda x: 5 * x + 54, list(range(10)))"
+  epochs: "[14, 19, 24, 29]"
+#  epochs:
+#    interval: 5
+#    until: 100
+#    start: 0
+  wait_load: true
 policy:
   pin_memory: false
   batch_size: 256
   device: gpu
-  n_metrics: [10, 30, 50]
+  n_metrics: [5, 10]

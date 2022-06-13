@@ -132,15 +132,10 @@ class BaseMLMTask(BaseTask, ABC):
                 self.print(f'exist in module dict, skip')
                 continue
 
-            if vocab in self.cls_module.classifiers:
-                module_dict[vocab] = self.cls_module.classifiers[vocab]
-                self.print(f'exist in cls dict module, skip')
-                continue
-
             vocab_size = self.depot.get_vocab_size(vocab, as_vocab=True)
-            module_dict[vocab] = self.cls_module(
+            module_dict[vocab] = self.cls_module.create(
                 config=self.model_init.model_config,
-                vocab_name=vocab,
+                key=vocab,
                 vocab_size=vocab_size,
             )
             self.print(f'created')
@@ -153,7 +148,7 @@ class BaseMLMTask(BaseTask, ABC):
             output_dict[vocab_name] = classification_module(last_hidden_state)
         return output_dict
 
-    def _calculate_loss(self, batch: MLMBertBatch, output, **kwargs) -> TaskLoss:
+    def calculate_loss(self, batch: MLMBertBatch, output, **kwargs) -> TaskLoss:
         weight = kwargs.get('weight', 1)
 
         mask_labels = batch.mask_labels.to(self.device)  # type: torch.Tensor
@@ -163,13 +158,19 @@ class BaseMLMTask(BaseTask, ABC):
             vocab_name = self.depot.get_vocab(col_name)
             vocab_size = self.depot.get_vocab_size(col_name)
 
-            col_mask = batch.mask_labels_col[col_name].to(self.device)  # type: torch.Tensor
-            col_labels = torch.mul(col_mask, mask_labels) + torch.ones(
-                mask_labels.shape, dtype=torch.long).to(self.device) * (1 - col_mask) * self.loss_pad
-            col_labels = col_labels.view(-1).to(self.device)
+            mask_labels_col = batch.mask_labels_col[col_name].to(self.device)  # type: torch.Tensor
+
+            col_mask = batch.col_mask[col_name].to(self.device)
+            masked_elements = torch.not_equal(col_mask, mask_labels_col)  # type: torch.Tensor
+            if not torch.sum(masked_elements):
+                continue
+
+            distribution = torch.masked_select(
+                output[vocab_name], masked_elements.unsqueeze(dim=-1)).view(-1, vocab_size).to(self.device)
+            col_labels = torch.masked_select(mask_labels, masked_elements).to(self.device)
 
             loss = self.loss_fct(
-                output[vocab_name].view(-1, vocab_size),
+                distribution,
                 col_labels
             )
             total_loss += loss * weight

@@ -137,7 +137,7 @@ class BaseTask:
             col_mask = batch.col_mask[col_name].to(self.device)  # type: torch.Tensor
             col_mask_ = col_mask.unsqueeze(-1).float()
             vocab = col_name if col_name == self.dataset.special_id else self.depot.get_vocab(col_name)
-            atom_items = [(input_ids, vocab)]
+            atom_items = [(input_ids, vocab)]  # [B, S]
 
             if col_name in batch.attr_ids and enable_attrs:
                 for attr_name in batch.attr_ids[col_name]:
@@ -148,22 +148,17 @@ class BaseTask:
                         ))
 
             for atom_inputs, atom_vocab in atom_items:
-                matrix = torch.mul(atom_inputs, col_mask)
+                matrix = torch.mul(atom_inputs, col_mask)  # [B, S]
                 table = table_dict[atom_vocab]
                 embedding = table(matrix).to(self.device)
                 input_embeds += torch.mul(col_mask_, embedding)
-
         return input_embeds
 
     def produce_output(self, model_output, **kwargs):
         raise NotImplementedError
 
-    def _calculate_loss(self, batch, output, **kwargs) -> TaskLoss:
-        raise NotImplementedError
-
     def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:
-        # batch = self.batcher(batch)
-        return self._calculate_loss(batch, output, **kwargs)
+        raise NotImplementedError
 
     def t(self, channel, *args, **kwargs):
         return self.__getattr__(f'test__{channel}')(*args, **kwargs)

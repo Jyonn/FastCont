@@ -1,7 +1,7 @@
-dataset: zhihu-n100
+dataset: aotm-n10
 store:
-  data_dir: data/ListContUni/{dataset}
-  save_dir: saving/{dataset}/{model}-E{hidden_size}/
+  data_dir: data/ListContUni/{config.dataset}
+  save_dir: saving/{config.dataset}/{exp.model}-E{config.model_config.hidden_size}/
 data:
   split:
     train:
@@ -12,12 +12,12 @@ data:
       weight: 1
   shuffle: true
   filter:
-    p_cluster:
+    p_local:
       - len(x) >= 5
 set:
   order:
-    - [k_cluster, k_global]
-    - [p_cluster, p_global]
+    - [k_cluster, k_global, k_local]
+    - [p_cluster, p_global, p_local]
   append:
     - index
   use_sep_token: true

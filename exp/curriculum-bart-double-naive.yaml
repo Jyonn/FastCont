@@ -1,0 +1,45 @@
+exp: curriculum-bart-double-naive
+model: bart
+mode: train
+freeze_emb: false
+tasks:
+  - name: en-cluster-mlm
+    params:
+      select_prob: 0.15
+      mask_prob: 1.0
+      random_prob: 0.0
+      cluster_json: clusters/cluster_vocab.json
+      grad_cluster_loss: true
+      grad_local_loss: true
+  -
+    name: de-cu-cluster-mlm
+    params:
+      weighted: false
+      weight_decay: 1.0
+      curriculum_steps: 1
+      cluster_json: clusters/cluster_vocab.json
+      grad_cluster_loss: true
+      grad_local_loss: true
+
+load:
+#  load_ckpt: curriculum-mlm-bert-cluster/epoch_99.bin
+  load_ckpt: null
+  load_model_only: true
+  relax_load: false
+store:
+  interval: 10
+  super_store: true
+  monitor: a.loss < b.loss and a.cluster_loss < b.cluster_loss and a.local_loss < b.local_loss
+  task: de-cu-cluster-mlm
+  top: 5
+  epoch_skip: 10
+policy:
+  pin_memory: false
+  epoch: 200
+  epoch_start: 0
+  lr: 0.01
+  batch_size: 64
+  accumulate_batch: 4
+  device: gpu
+  n_warmup: 600
+  check_interval: -2
