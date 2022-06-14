@@ -13,14 +13,6 @@ class CurriculumClusterMLMTask(BaseCurriculumMLMTask, BaseClusterMLMTask):
     cluster_cls_module = BertClusterClassifier
     batcher = CurriculumMLMBertBatch
 
-    def __init__(
-            self,
-            **kwargs,
-    ):
-        super(CurriculumClusterMLMTask, self).__init__(**kwargs)
-
-        self.col_order = [self.k_cluster, self.p_cluster]
-
     def _rebuild_batch(self, batch):
         self.prepare_batch(batch)
 
@@ -30,8 +22,8 @@ class CurriculumClusterMLMTask(BaseCurriculumMLMTask, BaseClusterMLMTask):
 
         return batch
 
-    def produce_output(self, model_output: BertOutput, **kwargs):
-        return self._produce_output(model_output.last_hidden_state, **kwargs)
+    def produce_output(self, model_output: BertOutput, batch: CurriculumMLMBertBatch):
+        return self._produce_output(model_output.last_hidden_state, batch)
 
     def test__curriculum(self, batch: CurriculumMLMBertBatch, output, metric_pool):
         return BaseClusterMLMTask.test__curriculum(

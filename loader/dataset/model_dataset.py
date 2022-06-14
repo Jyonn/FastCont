@@ -48,6 +48,7 @@ class ModelDataset(UniDepDataset):
         self.TOKENS = dict(PAD=self.PAD, BOS=self.CLS, SEP=self.SEP)
         for token, token_id in zip(expand_tokens, token_ids):
             self.TOKENS[token] = token_id
+        self.print('tokens', self.TOKENS)
 
         if self.injected_task:
             self.injected_task.injector_init(self)
@@ -128,12 +129,12 @@ class ModelDataset(UniDepDataset):
 
     def build_format_sequence(self, sample, order: Order):
         col_mask = dict()
+        input_ids = []
+        token_type_ids = []
+
         if self.use_cls_token:
-            input_ids = [self.CLS]
-            token_type_ids = [0]
-        else:
-            input_ids = []
-            token_type_ids = []
+            input_ids.append(self.CLS)
+            token_type_ids.append(0)
         special_mask = torch.tensor([1] * self.max_sequence, dtype=torch.long)
         attention_mask = torch.tensor([1] * self.max_sequence, dtype=torch.long)
         position = len(input_ids)
@@ -162,9 +163,10 @@ class ModelDataset(UniDepDataset):
 
             input_ids.extend(feat)
             position += len(feat)
-            token_type_ids.extend([token_type] * (len(feat) + 1))
+            token_type_ids.extend([token_type] * len(feat))
 
             if self.use_sep_token:
+                token_type_ids.append(token_type)
                 input_ids.append(self.SEP)
                 position += 1
                 token_type += 1

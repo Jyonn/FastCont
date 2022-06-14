@@ -3,14 +3,8 @@ mode: test__curriculum
 model: bart
 freeze_emb: false
 tasks:
-  - name: en-cluster-mlm
-    params:
-      cluster_json: clusters/cluster_vocab.json
-      grad_cluster_loss: true
-      grad_local_loss: true
-    only_initialization: true
   -
-    name: de-cu-cluster-mlm
+    name: cu-cluster-mlm-bart
     params:
       weighted: true
       weight_decay: 1.0
@@ -24,6 +18,7 @@ load:
   relax_load: false
   super_load: true
   ckpt_base_path: curriculum-bart-double-weight
+  auto_load: true
 #  epochs: "map(lambda x: 5 * x + 54, list(range(10)))"
 #  epochs: "[24, 49, 89, 94]"
   epochs:

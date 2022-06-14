@@ -6,7 +6,7 @@ from torch import nn
 
 from loader.dataset.model_dataset import ModelDataset
 from loader.init.model_init import ModelInit
-from loader.task.base_batch import BertBatch, BartBatch
+from loader.task.base_batch import BertBatch, BartBatch, BaseBatch
 from loader.task.base_loss import TaskLoss
 from utils.smart_printer import printer, Color
 
@@ -154,7 +154,7 @@ class BaseTask:
                 input_embeds += torch.mul(col_mask_, embedding)
         return input_embeds
 
-    def produce_output(self, model_output, **kwargs):
+    def produce_output(self, model_output, batch: BaseBatch):
         raise NotImplementedError
 
     def calculate_loss(self, batch, output, **kwargs) -> TaskLoss:

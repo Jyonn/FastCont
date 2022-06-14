@@ -32,8 +32,8 @@ class DecoderCurriculumMLMTask(BaseCurriculumMLMTask):
 
         return batch
 
-    def produce_output(self, model_output: Seq2SeqModelOutput, **kwargs):
-        return self._produce_output(model_output.last_hidden_state, **kwargs)
+    def produce_output(self, model_output: Seq2SeqModelOutput, batch):
+        return self._produce_output(model_output.last_hidden_state, batch)
 
     def calculate_loss(self, batch: CurriculumMLMBartBatch, output, **kwargs):
         return super().calculate_loss(batch.decoder, output, **kwargs)

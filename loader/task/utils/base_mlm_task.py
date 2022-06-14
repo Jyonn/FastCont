@@ -141,7 +141,7 @@ class BaseMLMTask(BaseTask, ABC):
             self.print(f'created')
         return nn.ModuleDict(module_dict)
 
-    def _produce_output(self, last_hidden_state, **kwargs):
+    def _produce_output(self, last_hidden_state, batch: Union[MLMBertBatch, MLMBartBatch]):
         output_dict = dict()
         for vocab_name in self.extra_module:
             classification_module = self.extra_module[vocab_name]

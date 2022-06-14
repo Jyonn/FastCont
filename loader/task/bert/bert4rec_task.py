@@ -1,14 +1,19 @@
-from typing import Dict
-
 import numpy as np
 import torch
-from torch import nn
 
 from loader.dataset.bert_dataset import BertDataset
 from loader.dataset.order import Order
-from loader.task.utils.base_mlm_task import BaseMLMTask
+from loader.task.utils.base_mlm_task import BaseMLMTask, MLMBertBatch
 from loader.task.utils.base_classifiers import BertClassifier
 from utils.transformers_adaptor import BertOutput
+
+
+class Bert4RecBatch(MLMBertBatch):
+    def __init__(self, batch):
+        super(Bert4RecBatch, self).__init__(batch=batch)
+        self.mask_index = None
+
+        self.register('mask_index')
 
 
 class Bert4RecTask(BaseMLMTask):
@@ -20,6 +25,7 @@ class Bert4RecTask(BaseMLMTask):
     mask_scheme = 'MASK'
     dataset: BertDataset
     cls_module = BertClassifier
+    batcher = Bert4RecBatch
     injection = ['train', 'dev']
 
     def __init__(
@@ -53,39 +59,36 @@ class Bert4RecTask(BaseMLMTask):
         del sample[self.known_items], sample[self.pred_items]
         return sample
 
-    def _rebuild_batch(self, batch):
+    def _rebuild_batch(self, batch: Bert4RecBatch):
         self.prepare_batch(batch)
 
         mask_last = np.random.uniform() < self.mask_last_ratio
 
         if mask_last or not self.is_training:
-            input_ids = batch['input_ids']  # type: torch.Tensor
-            col_mask = batch['col_mask']  # type: Dict[str, torch.Tensor]
-            mask_labels = batch['mask_labels']
-            batch_size = int(input_ids.shape[0])
+            batch_size = int(batch.input_ids.shape[0])
             mask_index = []
 
             for i_batch in range(batch_size):
                 col_end = None
                 for i_tok in range(self.dataset.max_sequence - 1, -1, -1):
-                    if col_mask[self.concat_col][i_batch][i_tok]:
+                    if batch.col_mask[self.concat_col][i_batch][i_tok]:
                         col_end = i_tok
                         break
                 mask_index.append(col_end)
 
-                mask_labels[i_batch][col_end] = input_ids[i_batch][col_end]
-                input_ids[i_batch][col_end] = self.dataset.TOKENS[self.mask_scheme]
-                col_mask[self.concat_col][i_batch][col_end] = 0
-                col_mask[self.dataset.special_id][i_batch][col_end] = 1
+                batch.mask_labels[i_batch][col_end] = batch.input_ids[i_batch][col_end]
+                batch.input_ids[i_batch][col_end] = self.dataset.TOKENS[self.mask_scheme]
+                batch.col_mask[self.concat_col][i_batch][col_end] = 0
+                batch.col_mask[self.dataset.special_id][i_batch][col_end] = 1
             if self.is_testing:
-                batch['mask_index'] = torch.tensor(mask_index)
+                batch.mask_index = torch.tensor(mask_index)
         else:
             self.random_mask(batch, self.concat_col)
 
         return batch
 
-    def produce_output(self, model_output: BertOutput, **kwargs):
-        return self._produce_output(model_output.last_hidden_state)
+    def produce_output(self, model_output: BertOutput, batch: Bert4RecBatch):
+        return self._produce_output(model_output.last_hidden_state, batch)
 
     def test__left2right(self, samples, model, metric_pool, dictifier):
         ground_truths = []
@@ -111,7 +114,7 @@ class Bert4RecTask(BaseMLMTask):
             )[self.concat_col]
 
             for i_batch in range(len(samples)):
-                mask_index = batch['mask_index'][i_batch]
+                mask_index = batch.mask_index[i_batch]
 
                 argsort = torch.argsort(outputs[i_batch][mask_index], descending=True).cpu().tolist()[:metric_pool.max_n]
                 argsorts[i_batch].append(argsort)

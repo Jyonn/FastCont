@@ -31,9 +31,14 @@ class EncoderClusterMLMTask(BaseClusterMLMTask):
 
         return batch
 
-    def produce_output(self, model_output: Seq2SeqModelOutput, **kwargs):
-        kwargs['batch'] = kwargs['batch'].encoder
-        return self._produce_output(model_output.encoder_last_hidden_state, **kwargs)
+    def produce_output(self, model_output: Seq2SeqModelOutput, batch: MLMBartBatch):
+        return self._produce_output(model_output.encoder_last_hidden_state, batch=batch.encoder)
 
     def calculate_loss(self, batch: MLMBartBatch, output, **kwargs):
-        return super().calculate_loss(batch.encoder, output, **kwargs)
+        return BaseClusterMLMTask.calculate_loss(
+            self,
+            batch=batch.encoder,
+            output=output,
+            weight=batch.encoder.weight,
+            **kwargs
+        )

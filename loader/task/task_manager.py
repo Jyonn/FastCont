@@ -1,4 +1,4 @@
-from loader.task.bart.decoder_curriculum_cluster_mlm_task import DecoderCurriculumClusterMLMTask
+from loader.task.bart.curriculum_cluster_mlm_task import CurriculumClusterMLMTask4Bart
 from loader.task.bart.decoder_curriculum_mlm_task import DecoderCurriculumMLMTask
 from loader.task.bart.encoder_cluster_mlm_task import EncoderClusterMLMTask
 from loader.task.bart.encoder_mlm_task import EncoderMLMTask
@@ -23,7 +23,7 @@ class TaskManager:
         EncoderMLMTask,
         DecoderCurriculumMLMTask,
         EncoderClusterMLMTask,
-        DecoderCurriculumClusterMLMTask,
+        CurriculumClusterMLMTask4Bart,
     ]
 
     TASKS = {task.name: task for task in TASKS_LIST}

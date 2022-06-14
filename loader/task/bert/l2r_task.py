@@ -97,7 +97,7 @@ class L2RTask(BaseTask):
         printer.L2R__TASK('Classification Module for', self.apply_col, '(', vocab, ')', 'with vocab size', vocab_size)
         return ClassificationModule(self.model_init.model_config)
 
-    def produce_output(self, model_output: BertOutput, **kwargs):
+    def produce_output(self, model_output: BertOutput, batch):
         last_hidden_state = model_output.last_hidden_state
         return self.extra_module(last_hidden_state)
 

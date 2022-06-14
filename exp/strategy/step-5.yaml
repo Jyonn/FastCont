@@ -1,14 +1,14 @@
-exp: curriculum-bart-double-weight
-model: bart
+exp: curriculum-bert-double-step-{exp.tasks[0].params.curriculum_steps}
+model: bert
 mode: train
 freeze_emb: false
 tasks:
   -
-    name: cu-cluster-mlm-bart
+    name: cu-cluster-mlm
     params:
-      weighted: true
-      weight_decay: 1.0
-      curriculum_steps: 20
+      weighted: false
+      weight_decay: 1
+      curriculum_steps: 5
       cluster_json: clusters/cluster_vocab.json
       grad_cluster_loss: true
       grad_local_loss: true
@@ -21,16 +21,17 @@ store:
   interval: 10
   super_store: true
   monitor: a.loss < b.loss and a.cluster_loss < b.cluster_loss and a.local_loss < b.local_loss
-  task: de-cu-cluster-mlm
+  task: cu-cluster-mlm
   top: 5
   epoch_skip: 10
 policy:
   pin_memory: false
   epoch: 200
   epoch_start: 0
-  lr: 0.005
+  lr: 0.01
   batch_size: 256
   accumulate_batch: 1
   device: gpu
   n_warmup: 600
   check_interval: -2
+  store_interval: 10

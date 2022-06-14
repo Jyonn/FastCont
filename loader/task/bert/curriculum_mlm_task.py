@@ -31,8 +31,8 @@ class CurriculumMLMTask(BaseCurriculumMLMTask):
 
         return batch
 
-    def produce_output(self, model_output: BertOutput, **kwargs):
-        return self._produce_output(model_output.last_hidden_state)
+    def produce_output(self, model_output: BertOutput, batch: CurriculumMLMBertBatch):
+        return self._produce_output(model_output.last_hidden_state, batch)
 
     def test__curriculum(self, batch: CurriculumMLMBertBatch, output, metric_pool):
         mask_labels_col = batch.mask_labels_col

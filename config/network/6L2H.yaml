@@ -1,7 +1,7 @@
 dataset: zhihu-n10
 store:
   data_dir: data/ListContUni/{config.dataset}
-  save_dir: saving/{config.dataset}/{exp.model}-E{config.model_config.hidden_size}/
+  save_dir: saving/{config.dataset}/{exp.model}-{config.model_config.num_hidden_layers}L{config.model_config.num_attention_heads}H/
 data:
   split:
     train:
@@ -15,17 +15,14 @@ data:
     p_local:
       - len(x) >= 5
 set:
-  encoder_order:
+  order:
     - [k_cluster, k_global, k_local]
-  decoder_order:
     - [p_cluster, p_global, p_local]
   append:
     - index
-  use_sep_token: false
-  use_cls_token: false
+  use_sep_token: true
+  use_cls_token: true
 model_config:
-  encoder_layers: 3
-  decoder_layers: 3
-  encoder_attention_heads: 8
-  decoder_attention_heads: 8
   hidden_size: 64
+  num_hidden_layers: 6
+  num_attention_heads: 2

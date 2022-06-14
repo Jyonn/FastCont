@@ -43,6 +43,8 @@ class BartDataset(ModelDataset):
         self.encoder_token_types = len(self.encoder_order) if self.use_sep_token else 1
         self.decoder_token_types = len(self.decoder_order) if self.use_sep_token else 1
 
+        self.print('max sequence', encoder_max_sequence, decoder_max_sequence)
+
         # encoder and decoder will share max length
         self.max_sequence = max(encoder_max_sequence, decoder_max_sequence)
 

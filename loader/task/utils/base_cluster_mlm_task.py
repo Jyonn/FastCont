@@ -60,7 +60,6 @@ class BaseClusterMLMTask(BaseMLMTask, ABC):
             self.p_global: self.p_cluster
         }
 
-        self.col_order = [self.k_cluster, self.p_cluster]
         self.col_pairs = [(self.k_cluster, self.k_local), (self.p_cluster, self.p_local)]
 
     def _load_cluster_vocabs(self):
@@ -99,8 +98,7 @@ class BaseClusterMLMTask(BaseMLMTask, ABC):
             )
         ))
 
-    def _produce_output(self, last_hidden_state, **kwargs):
-        batch = kwargs['batch']  # type: MLMBertBatch
+    def _produce_output(self, last_hidden_state, batch: MLMBertBatch):
         mask_labels = batch.mask_labels.to(self.device)  # type: torch.Tensor
 
         output_dict = dict()
@@ -112,6 +110,8 @@ class BaseClusterMLMTask(BaseMLMTask, ABC):
         output_dict['pred_cluster_labels'] = pred_cluster_labels = torch.argmax(pred_clusters.detach(), dim=-1).to(self.device)
 
         for col_name, local_col_name in self.col_pairs:
+            if col_name not in batch.mask_labels_col:
+                continue
             mask_labels_col = batch.mask_labels_col[col_name].to(self.device)
             col_mask = batch.col_mask[col_name].to(self.device)
             masked_elements = torch.not_equal(col_mask, mask_labels_col)
@@ -129,17 +129,17 @@ class BaseClusterMLMTask(BaseMLMTask, ABC):
             )
         return output_dict
 
-    def calculate_loss(self, batch: MLMBertBatch, output, **kwargs) -> TaskLoss:
+    def calculate_loss(self, batch: MLMBertBatch, output, **kwargs) -> ClusterMLMTaskLoss:
         weight = kwargs.get('weight', 1)
         mask_labels = batch.mask_labels.to(self.device)  # type: torch.Tensor
 
         total_cluster_loss = torch.tensor(0, dtype=torch.float).to(self.device)
         total_local_loss = torch.tensor(0, dtype=torch.float).to(self.device)
         for col_name, local_col_name in self.col_pairs:
+            if col_name not in batch.mask_labels_col:
+                continue
 
-            # Calculate cluster prediction loss
             vocab_size = self.depot.get_vocab_size(col_name)
-
             mask_labels_col = batch.mask_labels_col[col_name].to(self.device)  # type: torch.Tensor
 
             col_mask = batch.col_mask[col_name].to(self.device)

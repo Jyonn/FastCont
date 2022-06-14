@@ -29,8 +29,8 @@ class EncoderMLMTask(BaseMLMTask):
 
         return batch
 
-    def produce_output(self, model_output: Seq2SeqModelOutput, **kwargs):
-        return self._produce_output(model_output.encoder_last_hidden_state)
+    def produce_output(self, model_output: Seq2SeqModelOutput, batch):
+        return self._produce_output(model_output.encoder_last_hidden_state, batch)
 
     def calculate_loss(self, batch: MLMBartBatch, output, **kwargs):
         return super().calculate_loss(batch.encoder, output, **kwargs)

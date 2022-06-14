@@ -34,7 +34,7 @@ class Monitor:
         torch.save(state_dict, epoch_path)
 
     def push(self, epoch, loss_depots: dict, state_dict):
-        if self.epoch_skip is not None and epoch < self.epoch_skip:
+        if self.epoch_skip and epoch < self.epoch_skip:
             return
 
         if not self.super_store:
@@ -70,7 +70,7 @@ class Monitor:
         self.store_checkpoint(epoch, state_dict)
 
     def export(self):
-        if self.top is not None:
+        if self.top:
             for candidate in self.candidates[:-self.top]:
                 self.remove_checkpoint(candidate[0])
             self.candidates = self.candidates[-self.top:]
