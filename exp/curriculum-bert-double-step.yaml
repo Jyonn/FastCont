@@ -29,9 +29,8 @@ policy:
   epoch: 200
   epoch_start: 0
   lr: 0.01
-  batch_size: 256
-  accumulate_batch: 1
+  batch_size: 64
+  accumulate_batch: 4
   device: gpu
   n_warmup: 600
   check_interval: -2
-  store_interval: 10

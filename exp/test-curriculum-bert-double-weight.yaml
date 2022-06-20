@@ -15,7 +15,7 @@ load:
   load_model_only: false
   relax_load: false
   super_load: true
-  ckpt_base_path: curriculum-bert-double-weight-1.0
+  ckpt_base_path: curriculum-bert-double-weight-0.8
   auto_load: true
 #  epochs: "map(lambda x: 5 * x + 54, list(range(10)))"
   epochs: "[29, 69, 89, 99]"
@@ -26,6 +26,6 @@ load:
   wait_load: true
 policy:
   pin_memory: false
-  batch_size: 256
+  batch_size: 1
   device: gpu
   n_metrics: [5, 10]

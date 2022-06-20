@@ -99,11 +99,7 @@ class ModelDataset(UniDepDataset):
         return use_cols
 
     def _format_append(self, append):
-        append = append or []
-        for col_name in append:
-            if not self.col_info[col_name]:
-                raise ValueError('{} is not a column in data'.format(col_name))
-        return append
+        return append or []
 
     def _init_max_sequence(self, order: Order):
         max_sequence = int(self.use_cls_token)  # [CLS]
@@ -183,3 +179,11 @@ class ModelDataset(UniDepDataset):
             col_mask=col_mask,
             attr_ids=attr_ids,
         )
+
+        # for k in d:
+        #     if isinstance(d[k], torch.Tensor):
+        #         if int(d[k].shape[0]) != self.max_sequence:
+        #             print(k, len(d[k]), d[k])
+        #             print(sample)
+        #             exit(0)
+        # return d

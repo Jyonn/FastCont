@@ -1,5 +1,9 @@
+import json
+import os
+
 import numpy as np
 import torch
+from UniTok import Vocab
 
 from loader.dataset.bert_dataset import BertDataset
 from loader.dataset.order import Order
@@ -30,17 +34,27 @@ class Bert4RecTask(BaseMLMTask):
 
     def __init__(
             self,
-            known_items='known_items',
-            pred_items='pred_items',
+            k_global='k_global',
+            p_global='p_global',
+            k_cluster='k_cluster',
+            p_cluster='p_cluster',
             mask_last_ratio: float = 0.1,
+            use_cluster=False,
+            cluster_json=None,
             **kwargs,
     ):
         super(Bert4RecTask, self).__init__(**kwargs)
 
-        self.known_items = known_items
-        self.pred_items = pred_items
+        self.k_global = k_global
+        self.p_global = p_global
+        self.k_cluster = k_cluster
+        self.p_cluster = p_cluster
+        self.use_cluster = use_cluster
+
         self.concat_col = 'list'
+        self.cluster_col = 'cluster'
         self.col_order = [self.concat_col]
+        self.cluster_json = cluster_json
 
         self.mask_last_ratio = mask_last_ratio
 
@@ -48,15 +62,40 @@ class Bert4RecTask(BaseMLMTask):
 
     def init(self, **kwargs):
         super().init(**kwargs)
-        self.depot.col_info[self.concat_col] = dict(vocab=self.depot.col_info[self.known_items].vocab)
+        self.depot.col_info[self.concat_col] = dict(vocab=self.depot.col_info[self.k_global].vocab)
+
+        if self.use_cluster:
+            self.depot.col_info[self.cluster_col] = dict(vocab=self.depot.col_info[self.k_cluster].vocab)
+
+            self.cluster_vocab_count = json.load(open(os.path.join(self.depot.store_dir, self.cluster_json)))
+            self.n_clusters = len(self.cluster_vocab_count)
+
+            cluster_vocabs = self._load_cluster_vocabs()
+            global_vocab = self.depot.vocab_depot(self.depot.get_vocab(self.p_global))
+            self.cluster_map = [0] * global_vocab.get_size()  # type: list
+            for i_cluster, vocab in enumerate(cluster_vocabs):  # type: Vocab
+                for index in range(vocab.get_size()):
+                    index = global_vocab.obj2index[vocab.index2obj[index]]  # type: int
+                    self.cluster_map[index] = i_cluster
+
+    def _load_cluster_vocabs(self):
+        vocab_path = os.path.dirname(os.path.join(self.depot.store_dir, self.cluster_json))
+        return [Vocab(f'cluster_{i}').load(vocab_path) for i in range(self.n_clusters)]
 
     def _injector_init(self, dataset):
         # not only one dataset is required to be initialized
-        dataset.order = Order([self.concat_col])
+        if self.use_cluster:
+            dataset.order = Order([[self.concat_col, self.cluster_col]])
+        else:
+            dataset.order = Order([self.concat_col])
 
     def sample_injector(self, sample):
-        sample[self.concat_col] = sample[self.known_items] + sample[self.pred_items]
-        del sample[self.known_items], sample[self.pred_items]
+        sample[self.concat_col] = sample[self.k_global] + sample[self.p_global]
+        del sample[self.k_global], sample[self.p_global]
+
+        if self.use_cluster:
+            sample[self.cluster_col] = sample[self.k_cluster] + sample[self.p_cluster]
+            del sample[self.k_cluster], sample[self.p_cluster]
         return sample
 
     def _rebuild_batch(self, batch: Bert4RecBatch):
@@ -65,10 +104,9 @@ class Bert4RecTask(BaseMLMTask):
         mask_last = np.random.uniform() < self.mask_last_ratio
 
         if mask_last or not self.is_training:
-            batch_size = int(batch.input_ids.shape[0])
             mask_index = []
 
-            for i_batch in range(batch_size):
+            for i_batch in range(batch.batch_size):
                 col_end = None
                 for i_tok in range(self.dataset.max_sequence - 1, -1, -1):
                     if batch.col_mask[self.concat_col][i_batch][i_tok]:
@@ -94,39 +132,45 @@ class Bert4RecTask(BaseMLMTask):
         ground_truths = []
         lengths = []
 
-        argsorts = []
+        arg_sorts = []
         for sample in samples:
-            ground_truth = sample[self.pred_items]
-            lengths.append(len(sample[self.pred_items]))
-            sample[self.concat_col] = sample[self.known_items]
+            ground_truth = sample[self.p_global]
+            lengths.append(len(sample[self.p_global]))
+            sample[self.concat_col] = sample[self.k_global][:]
+            if self.use_cluster:
+                sample[self.cluster_col] = sample[self.k_cluster][:]
             ground_truths.append(ground_truth)
-            argsorts.append([])
+            arg_sorts.append([])
 
         for index in range(max(lengths)):
             for sample in samples:
                 sample[self.concat_col].append(0)
+                if self.use_cluster:
+                    sample[self.cluster_col].append(0)
             batch = dictifier([self.dataset.build_format_data(sample) for sample in samples])
-            batch = self._rebuild_batch(batch)
+            batch = self._rebuild_batch(Bert4RecBatch(batch))
 
             outputs = model(
                 batch=batch,
                 task=self,
-            )[self.concat_col]
+            )[self.depot.get_vocab(self.concat_col)]  # [B, S, V]
 
             for i_batch in range(len(samples)):
                 mask_index = batch.mask_index[i_batch]
 
-                argsort = torch.argsort(outputs[i_batch][mask_index], descending=True).cpu().tolist()[:metric_pool.max_n]
-                argsorts[i_batch].append(argsort)
-                samples[i_batch][self.concat_col][-1] = argsort[0]
+                arg_sort = torch.argsort(outputs[i_batch][mask_index], descending=True).cpu().tolist()[:metric_pool.max_n]
+                arg_sorts[i_batch].append(arg_sort)
+                samples[i_batch][self.concat_col][-1] = arg_sort[0]
+                if self.use_cluster:
+                    samples[i_batch][self.cluster_col][-1] = self.cluster_map[arg_sort[0]]
 
         for i_batch, sample in enumerate(samples):
             candidates = []
             candidates_set = set()
             for depth in range(metric_pool.max_n):
-                for index in range(len(sample[self.pred_items])):
-                    candidates_set.add(argsorts[index][depth])
-                    candidates.append(argsorts[index][depth])
+                for index in range(len(sample[self.p_global])):
+                    candidates_set.add(arg_sorts[i_batch][index][depth])
+                    candidates.append(arg_sorts[i_batch][index][depth])
                 if len(candidates_set) >= metric_pool.max_n and len(candidates) >= metric_pool.max_n:
                     break
 

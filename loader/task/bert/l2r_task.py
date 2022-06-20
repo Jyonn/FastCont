@@ -1,71 +1,56 @@
 import random
-from typing import Dict
+from typing import Dict, Optional
 
 import torch
 from torch import nn
-from transformers import BertConfig
-from transformers.activations import ACT2FN
 
 from loader.dataset.bert_dataset import BertDataset
+from loader.task.base_batch import BertBatch
+from loader.task.utils.base_classifiers import BertClassifier
 from utils.transformers_adaptor import BertOutput
 
 from loader.task.base_task import BaseTask
 from loader.task.base_loss import TaskLoss
-from utils.smart_printer import printer
 
 
-class ClassificationModule(nn.Module):
-    def __init__(self, config: BertConfig, vocab_size):
-        super(ClassificationModule, self).__init__()
-        self.transform = nn.Linear(config.hidden_size, config.hidden_size)
-        self.transform_act_fn = ACT2FN[config.hidden_act]
-        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+class L2RBertBatch(BertBatch):
+    def __init__(self, batch):
+        super(L2RBertBatch, self).__init__(batch)
 
-        self.decoder = nn.Linear(config.hidden_size, vocab_size, bias=False)
-        self.bias = nn.Parameter(torch.zeros(vocab_size), requires_grad=True)
-        self.decoder.bias = self.bias
+        self.mask_label_index = None  # type: Optional[torch.Tensor]
+        self.neg_labels = None  # type: Optional[torch.Tensor]
 
-    def forward(self, hidden_states):
-        hidden_states = self.transform(hidden_states)
-        hidden_states = self.transform_act_fn(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states)
-        hidden_states = self.decoder(hidden_states)
-        return hidden_states
+        self.register('mask_label_index', 'neg_labels')
 
 
 class L2RTask(BaseTask):
     name = 'l2r'
     dataset: BertDataset
+    cls_module: BertClassifier
+    batcher = L2RBertBatch
 
     def __init__(
             self,
             apply_col,
             neg_ratio=4,
-            test=False,
     ):
         super(L2RTask, self).__init__()
         self.apply_col = apply_col  # type: str
         self.neg_ratio = neg_ratio
-        self.test = test
 
         self.loss_fct = nn.CrossEntropyLoss()
 
-    def _rebuild_batch(self, batch):
-        input_ids = batch['input_ids']  # type: torch.Tensor
-        col_mask = batch['col_mask']  # type: Dict[str, torch.Tensor]
-        attention_mask = batch['attention_mask']  # type: torch.Tensor
-        batch_size = int(input_ids.shape[0])
-
+    def _rebuild_batch(self, batch: L2RBertBatch):
         mask_label_index = []
         neg_labels = []
         vocab_size = self.depot.get_vocab_size(self.apply_col)
 
-        for i_batch in range(batch_size):
+        for i_batch in range(batch.batch_size):
             col_start = None
             col_length = 0
 
             for i_tok in range(self.dataset.max_sequence):
-                if col_mask[self.apply_col][i_batch][i_tok]:
+                if batch.col_mask[self.apply_col][i_batch][i_tok]:
                     if col_start is None:
                         col_start = i_tok
                     col_length += 1
@@ -73,44 +58,47 @@ class L2RTask(BaseTask):
             mask_index = col_length - 1 if self.test else random.choice(range(col_length))
             mask_label_index.append(mask_index + col_start - 1)
 
-            attention_mask[i_batch][mask_index + col_start: col_start + col_length] = 0
+            batch.attention_mask[i_batch][mask_index + col_start: col_start + col_length] = 0
 
-            if self.test:
+            if self.is_testing:
                 continue
 
-            neg_label = [input_ids[i_batch][mask_index + col_start].item()]
+            neg_label = [batch.input_ids[i_batch][mask_index + col_start].item()]
             while len(neg_label) < self.neg_ratio + 1:
                 neg_index = random.randint(0, vocab_size - 1)
-                if neg_index != input_ids[i_batch][mask_index + col_start]:
+                if neg_index != batch.input_ids[i_batch][mask_index + col_start]:
                     neg_label.append(neg_index)
             neg_labels.append(neg_label)
 
-        batch['mask_label_index'] = torch.tensor(mask_label_index)
-        batch['neg_labels'] = torch.tensor(neg_labels)
-        batch['attention_mask'] = attention_mask
+        batch.mask_label_index = torch.tensor(mask_label_index)
+        batch.neg_labels = torch.tensor(neg_labels)
         return batch
 
     def _init_extra_module(self):
-        vocab = self.depot.col_info.d[self.apply_col].vocab
-        vocab_size = self.depot.get_vocab_size(vocab, as_vocab=True)
+        vocab = self.depot.get_vocab(self.apply_col)
+        vocab_size = self.depot.get_vocab_size(self.apply_col)
 
-        printer.L2R__TASK('Classification Module for', self.apply_col, '(', vocab, ')', 'with vocab size', vocab_size)
-        return ClassificationModule(self.model_init.model_config)
+        self.print(f'preparing CLS module for {self.apply_col} - {vocab}')
+        return self.cls_module(
+            config=self.model_init.model_config,
+            key=vocab,
+            vocab_size=vocab_size,
+        )
 
     def produce_output(self, model_output: BertOutput, batch):
         last_hidden_state = model_output.last_hidden_state
         return self.extra_module(last_hidden_state)
 
-    def calculate_loss(self, batch, output, **kwargs):
+    def calculate_loss(self, batch: L2RBertBatch, output, **kwargs):
         embedding_tables = kwargs['model'].embedding_tables
         vocab_name = self.depot.get_vocab(self.apply_col)
         embeddings = embedding_tables[vocab_name]  # type: nn.Embedding
 
-        mask_label_index = batch['mask_label_index'].to(self.device)
-        neg_labels = batch['neg_labels'].to(self.device)  # type: torch.Tensor
+        mask_label_index = batch.mask_label_index.to(self.device)
+        neg_labels = batch.neg_labels.to(self.device)  # type: torch.Tensor
         batch_size = mask_label_index.shape[0]
 
-        if self.test:
+        if self.is_testing:
             samples = kwargs['samples']
             ranks = []
             for i_batch in range(batch_size):

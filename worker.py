@@ -271,22 +271,25 @@ class Worker:
     def test__left2right(self, task: BaseTask, metric_pool: metric.MetricPool):
         assert isinstance(task, Bert4RecTask)
 
-        test_depot = self.data.sets[self.data.TEST].depot
+        test_set = self.data.sets[self.data.TEST]
+        test_depot = test_set.depot
         dictifier = Dictifier(aggregator=torch.stack)
 
         with torch.no_grad():
             index = 0
             samples = []
-            for sample in tqdm(test_depot, disable=self.disable_tqdm):
+            for index in tqdm(range(*test_set.split_range), disable=self.disable_tqdm):
+                sample = test_depot[index]
                 sample = copy.deepcopy(sample)
                 samples.append(sample)
                 index += 1
                 if index >= self.exp.policy.batch_size:
                     task.t('left2right', samples, self.auto_model, metric_pool, dictifier=dictifier)
                     index = 0
+                    samples = []
 
             if index:
-                task.test__left2right(samples, self.auto_model, metric_pool, dictifier=dictifier)
+                task.t('left2right', samples, self.auto_model, metric_pool, dictifier=dictifier)
 
     # def export__curriculum(self, task: BaseTask):
     #     assert isinstance(task, BaseCurriculumMLMTask)
@@ -387,6 +390,7 @@ class Worker:
                         continue
                     self.test_center(handler, task)
             else:
+                interval, until, start = None, None, None
                 if self.exp.load.auto_load:
                     epochs = json.load(open(os.path.join(
                         self.args.store.save_dir,
@@ -397,9 +401,7 @@ class Worker:
                     epochs = self.exp.load.epochs
                 if isinstance(epochs, str):
                     epochs = eval(epochs)
-                if isinstance(epochs, list):
-                    interval, until, start = None, None, None
-                else:
+                if not isinstance(epochs, list):
                     epochs, interval, until, start = None, epochs.interval, epochs.until, epochs.start
                 epochs = Epoch(epochs, interval, until, start)
 
