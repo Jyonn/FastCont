@@ -6,6 +6,7 @@ from loader.task.bert.bert4rec_task import Bert4RecTask
 from loader.task.bert.curriculum_cluster_mlm_task import CurriculumClusterMLMTask
 from loader.task.bert.curriculum_mlm_task import CurriculumMLMTask
 from loader.task.bert.sasrec_task import SASRecTask
+from loader.task.car.car_task import CarTask
 from loader.task.non_task import NonTask
 from utils.smart_printer import printer
 
@@ -20,6 +21,9 @@ class TaskManager:
         CurriculumClusterMLMTask,
         Bert4RecTask,
         SASRecTask,
+
+        # CAR-based
+        CarTask,
 
         # BART-based
         EncoderMLMTask,

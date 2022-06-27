@@ -15,6 +15,7 @@ from loader.task.task_initializer import TaskInitializer
 from loader.task.base_task import BaseTask
 from model.auto_bart import AutoBart
 from model.auto_bert import AutoBert
+from model.auto_car import AutoCar
 
 from utils.splitter import Splitter
 from utils.smart_printer import printer
@@ -25,8 +26,9 @@ class Data:
     DEV = 'dev'
     TEST = 'test'
 
-    BERT = 'BERT'
-    BART = 'BART'
+    MODEL_BERT = 'BERT'
+    MODEL_BART = 'BART'
+    MODEL_CAR = 'CAR'
 
     def __init__(
         self,
@@ -41,14 +43,18 @@ class Data:
 
         self.print('Model', self.exp.model)
 
-        if self.exp.model == self.BERT:
+        if self.exp.model == self.MODEL_BERT:
             self.dataset_class = BertDataset
             self.model_initializer = BertInit
             self.model = AutoBert
-        elif self.exp.model == self.BART:
+        elif self.exp.model == self.MODEL_BART:
             self.dataset_class = BartDataset
             self.model_initializer = BartInit
             self.model = AutoBart
+        elif self.exp.model == self.MODEL_CAR:
+            self.dataset_class = BertDataset
+            self.model_initializer = BertInit
+            self.model = AutoCar
         else:
             raise ValueError(f'Unknown model [{self.exp.model}]')
 

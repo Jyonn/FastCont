@@ -98,9 +98,9 @@ class Worker:
 
     @staticmethod
     def get_device(cuda):
-        if cuda == -1:
+        if cuda in [-1, False]:
             return 'cpu'
-        if not cuda:
+        if cuda is None:
             return GPU.auto_choose(torch_format=True)
         return "cuda:{}".format(cuda)
 
