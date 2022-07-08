@@ -25,6 +25,7 @@ class ModelInit:
             hidden_size: int = 768,
             embedding_init: EmbeddingInit = None,
             global_freeze: bool = False,
+            **kwargs,
     ):
         self.print = printer.MODEL__INIT_Cblue_
         self.dataset = dataset

@@ -203,18 +203,17 @@ class BaseClusterMLMTask(BaseMLMTask, ABC):
                 else:
                     arg_sorts.append(None)
 
-            ground_truth = self.depot.pack_sample(indexes[i_batch])[self.p_global][:metric_pool.max_n]
+            ground_truth = self.depot.pack_sample(indexes[i_batch])[self.p_global]
             candidates = []
-            candidates_set = set()
             for depth in range(metric_pool.max_n):
                 for i_tok in range(self.dataset.max_sequence):
                     if col_mask[i_batch][i_tok]:
-                        candidates_set.add(arg_sorts[i_tok][depth])
-                        candidates.append(arg_sorts[i_tok][depth])
-                if len(candidates_set) >= metric_pool.max_n and len(candidates) >= metric_pool.max_n:
+                        if arg_sorts[i_tok][depth] not in candidates:
+                            candidates.append(arg_sorts[i_tok][depth])
+                if len(candidates) >= metric_pool.max_n:
                     break
 
-            metric_pool.push(candidates, candidates_set, ground_truth)
+            metric_pool.push(candidates, ground_truth)
 
         for cluster_id in range(self.n_clusters):
             if output[cluster_id] is None:

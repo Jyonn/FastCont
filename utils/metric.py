@@ -8,7 +8,7 @@ class Metric:
     name: str
 
     @classmethod
-    def calculate(cls, candidates: list, candidates_set: set, ground_truth: list, n, **kwargs):
+    def calculate(cls, candidates: list, ground_truth: list, n, **kwargs):
         pass
 
 
@@ -16,7 +16,7 @@ class HitRate(Metric):
     name = 'HR'
 
     @classmethod
-    def calculate(cls, candidates: list, candidates_set: set, ground_truth: list, n, **kwargs):
+    def calculate(cls, candidates: list, ground_truth: list, n, **kwargs):
         candidates_set = set(candidates[:n])
         interaction = candidates_set.intersection(set(ground_truth))
         return int(bool(interaction))
@@ -26,21 +26,21 @@ class Recall(Metric):
     name = 'RC'
 
     @classmethod
-    def calculate(cls, candidates: list, candidates_set: set, ground_truth: list, n, **kwargs):
+    def calculate(cls, candidates: list, ground_truth: list, n, **kwargs):
         candidates_set = set(candidates[:n])
         interaction = candidates_set.intersection(set(ground_truth))
         return len(interaction) * 1.0 / n
 
 
-class OverlapRate(Metric):
-    name = 'OR'
-
-    @classmethod
-    def calculate(cls, candidates: list, candidates_set: set, ground_truth: list, n, **kwargs):
-        candidates = candidates[:n]
-        candidates_set = set(candidates)
-        return 1 - len(candidates_set) * 1.0 / len(candidates)
-
+# class OverlapRate(Metric):
+#     name = 'OR'
+#
+#     @classmethod
+#     def calculate(cls, candidates: list, candidates_set: set, ground_truth: list, n, **kwargs):
+#         candidates = candidates[:n]
+#         candidates_set = set(candidates)
+#         return 1 - len(candidates_set) * 1.0 / len(candidates)
+#
 
 class NDCG(Metric):
     name = 'N '
@@ -71,15 +71,8 @@ class NDCG(Metric):
         return ndcg
 
     @classmethod
-    def calculate(cls, candidates: list, candidates_set: set, ground_truth: list, n, **kwargs):
-        candidates_ = []
-        for item in candidates:
-            if len(candidates_) >= n:
-                break
-            if item not in candidates_:
-                candidates_.append(item)
-        ground_truth = ground_truth[:n]
-        return cls.get_ndcg(candidates_, ground_truth)
+    def calculate(cls, candidates: list, ground_truth: list, n, **kwargs):
+        return cls.get_ndcg(candidates[:n], ground_truth)
 
 
 class MetricPool:
@@ -105,17 +98,26 @@ class MetricPool:
         for metric_name, n in self.pool:
             self.values[(metric_name, n)] = []
 
-    def push(self, candidates, candidates_set, ground_truth, **kwargs):
+    def push(self, candidates, ground_truth, **kwargs):
         for metric_name, n in self.values:
             if n and len(ground_truth) < n:
                 continue
 
             self.values[(metric_name, n)].append(self.metrics[metric_name].calculate(
                 candidates=candidates,
-                candidates_set=candidates_set,
                 ground_truth=ground_truth,
                 n=n,
             ))
+
+        # try:
+        #     if self.values[(HitRate.name, 5)][-1] < self.values[(HitRate.name, 10)][-1]:
+        #         print(candidates)
+        #         print(ground_truth)
+        #         exit(0)
+        # except Exception as e:
+        #     print(str(e))
+        #     print(self.values[(HitRate.name, 5)])
+        #     print(self.values[(HitRate.name, 10)])
 
     def export(self):
         for metric_name, n in self.values:

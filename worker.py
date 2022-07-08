@@ -23,6 +23,7 @@ from utils.monitor import Monitor
 from utils.random_seed import seeding
 from utils.smart_printer import SmartPrinter, printer, Color
 from utils.logger import Logger
+from utils.timer import Timer
 
 
 class Worker:
@@ -233,6 +234,35 @@ class Worker:
 
         return loss_depot.summarize()
 
+    def test__curriculum_module_time(self, task: BaseTask, metric_pool):
+        assert isinstance(task, BaseCurriculumMLMTask)
+        steps = 0
+
+        loader = self.data.get_loader(self.data.TEST, task).test()
+
+        timer = Timer()
+        self.auto_model.set_timer(timer)
+
+        start_ = time.time()
+        for batch in tqdm(loader):
+            with torch.no_grad():
+                output = self.auto_model(
+                    batch=batch,
+                    task=task,
+                )
+                start__ = time.time()
+                task.t('curriculum', batch, output, metric_pool)
+                end__ = time.time()
+                timer.append('infer', end__ - start__)
+            steps += 1
+            if steps > 500:
+                break
+        end_ = time.time()
+        self.print((end_ - start_) * 1000 / steps)
+        timer.export()
+
+        exit(0)
+
     def test__curriculum_time(self, task: BaseTask, metric_pool):
         assert isinstance(task, BaseCurriculumMLMTask)
         rounds = 5
@@ -268,6 +298,29 @@ class Worker:
                 )
                 task.t('curriculum', batch, output, metric_pool)
 
+    def test__recall(self, task: BaseTask, metric_pool: metric.MetricPool):
+        assert isinstance(task, Bert4RecTask)
+
+        test_set = self.data.sets[self.data.TEST]
+        test_depot = test_set.depot
+        dictifier = Dictifier(aggregator=torch.stack)
+
+        with torch.no_grad():
+            index = 0
+            samples = []
+            for index in tqdm(range(*test_set.split_range), disable=self.disable_tqdm):
+                sample = test_depot[index]
+                sample = copy.deepcopy(sample)
+                samples.append(sample)
+                index += 1
+                if index >= self.exp.policy.batch_size:
+                    task.t('recall', samples, self.auto_model, metric_pool, dictifier=dictifier)
+                    index = 0
+                    samples = []
+
+            if index:
+                task.t('left2right', samples, self.auto_model, metric_pool, dictifier=dictifier)
+
     def test__left2right(self, task: BaseTask, metric_pool: metric.MetricPool):
         assert isinstance(task, Bert4RecTask)
 
@@ -291,24 +344,11 @@ class Worker:
             if index:
                 task.t('left2right', samples, self.auto_model, metric_pool, dictifier=dictifier)
 
-    # def export__curriculum(self, task: BaseTask):
-    #     assert isinstance(task, BaseCurriculumMLMTask)
-    #
-    #     loader = self.data.get_loader(self.data.TEST, task).test()
-    #
-    #     for batch in tqdm(loader, disable=self.disable_tqdm):
-    #         with torch.no_grad():
-    #             output = self.auto_model(
-    #                 batch=batch,
-    #                 task=task,
-    #             )
-    #             task.test__curriculum(batch, output, metric_pool)
-
     def test_center(self, handler, task: BaseTask):
         metric_pool = metric.MetricPool()
-        metric_pool.add(metric.OverlapRate())
-        metric_pool.add(metric.HitRate(), ns=self.exp.policy.n_metrics)
+        # metric_pool.add(metric.OverlapRate())
         metric_pool.add(metric.NDCG(), ns=self.exp.policy.n_metrics)
+        metric_pool.add(metric.HitRate(), ns=self.exp.policy.n_metrics)
         metric_pool.init()
 
         self.auto_model.eval()
@@ -322,31 +362,6 @@ class Worker:
                 self.print(f'{metric_name}@{n:4d}: {metric_pool.values[(metric_name, n)]:.4f}')
             else:
                 self.print(f'{metric_name}     : {metric_pool.values[(metric_name, n)]:.4f}')
-
-    # def export(self):
-    #     # bert_aggregator = BertAggregator(
-    #     #     layers=self.exp.save.layers,
-    #     #     layer_strategy=self.exp.save.layer_strategy,
-    #     #     union_strategy=self.exp.save.union_strategy,
-    #     # )
-    #     features = torch.zeros(
-    #         self.data.depot.sample_size,
-    #         self.args.model_config.hidden_size,
-    #         dtype=torch.float
-    #     ).to(self.device)
-    #
-    #     for loader in [self.data.get_loader(self.data.TRAIN, self.data.non_task),
-    #                    self.data.get_loader(self.data.DEV, self.data.non_task)]:
-    #         for batch in tqdm(loader):
-    #             with torch.no_grad():
-    #                 task_output = self.auto_model(batch=batch, task=self.data.non_task)  # type: BertOutput
-    #                 task_output = task_output.last_hidden_state.detach()  # type: torch.Tensor  # [B, S, D]
-    #                 attention_sum = batch['attention_mask'].to(self.device).sum(-1).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
-    #                 attention_mask = batch['attention_mask'].to(self.device).unsqueeze(-1).repeat(1, 1, self.args.model_config.hidden_size)
-    #                 features[batch['append_info'][self.exp.save.key]] = (task_output * attention_mask).sum(1) / attention_sum
-    #
-    #     save_path = os.path.join(self.args.store.ckpt_path, self.exp.save.feature_path)
-    #     np.save(save_path, features.cpu().numpy(), allow_pickle=False)
 
     def batch_displaying(self):
         tasks = self.data.tasks

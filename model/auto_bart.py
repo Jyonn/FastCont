@@ -2,6 +2,8 @@ from typing import Union
 
 import torch
 
+from loader.dataset.bart_dataset import BartDataset
+from loader.init.bart_init import BartInit
 from loader.task.base_batch import BartBatch
 from loader.task.base_task import BaseTask
 from model.auto_model import AutoModel
@@ -11,6 +13,8 @@ from utils.transformers_adaptor import BartModel
 
 class AutoBart(AutoModel):
     model: BartModel
+    dataset_class = BartDataset
+    model_initializer = BartInit
 
     def __init__(self, **kwargs):
         super(AutoBart, self).__init__(model_class=BartModel, **kwargs)

@@ -166,12 +166,41 @@ class Bert4RecTask(BaseMLMTask):
 
         for i_batch, sample in enumerate(samples):
             candidates = []
-            candidates_set = set()
             for depth in range(metric_pool.max_n):
                 for index in range(len(sample[self.p_global])):
-                    candidates_set.add(arg_sorts[i_batch][index][depth])
-                    candidates.append(arg_sorts[i_batch][index][depth])
-                if len(candidates_set) >= metric_pool.max_n and len(candidates) >= metric_pool.max_n:
+                    if arg_sorts[i_batch][index][depth] not in candidates:
+                        candidates.append(arg_sorts[i_batch][index][depth])
+                if len(candidates) >= metric_pool.max_n:
                     break
 
-            metric_pool.push(candidates, candidates_set, ground_truths[i_batch])
+            metric_pool.push(candidates, ground_truths[i_batch])
+
+    def test__recall(self, samples, model, metric_pool, dictifier):
+        ground_truths = []
+        lengths = []
+
+        arg_sorts = []
+        for sample in samples:
+            ground_truth = sample[self.p_global]
+            lengths.append(len(sample[self.p_global]))
+            sample[self.concat_col] = sample[self.k_global][:]
+            sample[self.concat_col].append(0)
+            if self.use_cluster:
+                sample[self.cluster_col] = sample[self.k_cluster][:]
+                sample[self.cluster_col].append(0)
+            ground_truths.append(ground_truth)
+            arg_sorts.append([])
+
+        batch = dictifier([self.dataset.build_format_data(sample) for sample in samples])
+        batch = self._rebuild_batch(Bert4RecBatch(batch))
+
+        outputs = model(
+            batch=batch,
+            task=self,
+        )[self.depot.get_vocab(self.concat_col)]  # [B, S, V]
+
+        for i_batch in range(len(samples)):
+            mask_index = batch.mask_index[i_batch]
+
+            candidates = torch.argsort(outputs[i_batch][mask_index], descending=True).cpu().tolist()[:lengths[i_batch]]
+            metric_pool.push(candidates, ground_truths[i_batch])

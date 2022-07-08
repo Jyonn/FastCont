@@ -119,12 +119,11 @@ class SASRecTask(Bert4RecTask):
 
         for i_batch, sample in enumerate(samples):
             candidates = []
-            candidates_set = set()
             for depth in range(metric_pool.max_n):
                 for index in range(len(sample[self.p_global])):
-                    candidates_set.add(arg_sorts[i_batch][index][depth])
-                    candidates.append(arg_sorts[i_batch][index][depth])
-                if len(candidates_set) >= metric_pool.max_n and len(candidates) >= metric_pool.max_n:
+                    if arg_sorts[i_batch][index][depth] not in candidates:
+                        candidates.append(arg_sorts[i_batch][index][depth])
+                if len(candidates) >= metric_pool.max_n:
                     break
 
-            metric_pool.push(candidates, candidates_set, ground_truths[i_batch])
+            metric_pool.push(candidates, ground_truths[i_batch])

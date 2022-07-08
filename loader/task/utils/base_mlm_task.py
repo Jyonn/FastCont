@@ -149,28 +149,29 @@ class BaseMLMTask(BaseTask, ABC):
         return output_dict
 
     def calculate_loss(self, batch: MLMBertBatch, output, **kwargs) -> TaskLoss:
-        weight = kwargs.get('weight', 1)
-
-        mask_labels = batch.mask_labels.to(self.device)  # type: torch.Tensor
-
-        total_loss = torch.tensor(0, dtype=torch.float).to(self.device)
-        for col_name in self.col_order:
-            mask_labels_col = batch.mask_labels_col[col_name].to(self.device)  # type: torch.Tensor
-            col_mask = batch.col_mask[col_name].to(self.device)
-            masked_elements = torch.not_equal(col_mask, mask_labels_col)  # type: torch.Tensor
-            if not torch.sum(masked_elements):
-                continue
-
-            col_labels = torch.mul(mask_labels_col, mask_labels) + \
-                         torch.ones(mask_labels.shape, dtype=torch.long).to(self.device) * (mask_labels_col - 1) * 100
-            col_labels = col_labels.view(-1).to(self.device)
-            vocab_size = self.depot.get_vocab_size(col_name)
-            loss = self.loss_fct(
-                output[col_name].view(-1, vocab_size),
-                col_labels
-            )
-            total_loss += loss * weight
-        return TaskLoss(loss=total_loss)
+        # weight = kwargs.get('weight', 1)
+        #
+        # mask_labels = batch.mask_labels.to(self.device)  # type: torch.Tensor
+        #
+        # total_loss = torch.tensor(0, dtype=torch.float).to(self.device)
+        # for col_name in self.col_order:
+        #     vocab_name = self.depot.get_vocab(col_name)
+        #     mask_labels_col = batch.mask_labels_col[col_name].to(self.device)  # type: torch.Tensor
+        #     col_mask = batch.col_mask[col_name].to(self.device)
+        #     masked_elements = torch.not_equal(col_mask, mask_labels_col)  # type: torch.Tensor
+        #     if not torch.sum(masked_elements):
+        #         continue
+        #
+        #     col_labels = torch.mul(mask_labels_col, mask_labels) + \
+        #                  torch.ones(mask_labels.shape, dtype=torch.long).to(self.device) * (mask_labels_col - 1) * 100
+        #     col_labels = col_labels.view(-1).to(self.device)
+        #     vocab_size = self.depot.get_vocab_size(col_name)
+        #     loss = self.loss_fct(
+        #         output[vocab_name].view(-1, vocab_size),
+        #         col_labels
+        #     )
+        #     total_loss += loss * weight
+        # return TaskLoss(loss=total_loss)
 
         weight = kwargs.get('weight', 1)
 

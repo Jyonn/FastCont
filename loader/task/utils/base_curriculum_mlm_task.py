@@ -90,18 +90,18 @@ class BaseCurriculumMLMTask(BaseMLMTask, ABC):
                 else:
                     argsorts.append(None)
 
-            ground_truth = self.depot.pack_sample(indexes[i_batch])[col_name][:metric_pool.max_n]
+            ground_truth = self.depot.pack_sample(indexes[i_batch])[col_name]
             candidates = []
-            candidates_set = set()
+            # candidates_set = set()
             for depth in range(metric_pool.max_n):
                 for i_tok in range(self.dataset.max_sequence):
                     if col_mask[i_batch][i_tok]:
-                        candidates_set.add(argsorts[i_tok][depth])
-                        candidates.append(argsorts[i_tok][depth])
-                if len(candidates_set) >= metric_pool.max_n and len(candidates) >= metric_pool.max_n:
+                        if argsorts[i_tok][depth] not in candidates:
+                            candidates.append(argsorts[i_tok][depth])
+                if len(candidates) >= metric_pool.max_n:
                     break
 
-            metric_pool.push(candidates, candidates_set, ground_truth)
+            metric_pool.push(candidates, ground_truth)
 
     def test__curriculum(self, batch, output, metric_pool):
         raise NotImplementedError

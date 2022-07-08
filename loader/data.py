@@ -1,10 +1,12 @@
 import os
+from typing import Type
 
 from UniTok import UniDep
 
 from loader.dataset.bart_dataset import BartDataset
 from loader.dataset.bert_dataset import BertDataset
 from loader.init.bart_init import BartInit
+from loader.init.gru_init import GruInit
 from loader.model_dataloader import ModelDataLoader
 from loader.init.bert_init import BertInit
 from loader.depot_manager import DepotFilter
@@ -16,6 +18,9 @@ from loader.task.base_task import BaseTask
 from model.auto_bart import AutoBart
 from model.auto_bert import AutoBert
 from model.auto_car import AutoCar
+from model.auto_caser import AutoCaser
+from model.auto_gru import AutoGru
+from model.auto_model import AutoModel
 
 from utils.splitter import Splitter
 from utils.smart_printer import printer
@@ -29,6 +34,8 @@ class Data:
     MODEL_BERT = 'BERT'
     MODEL_BART = 'BART'
     MODEL_CAR = 'CAR'
+    MODEL_GRU = 'GRU'
+    MODEL_CASER = 'CASER'
 
     def __init__(
         self,
@@ -43,18 +50,13 @@ class Data:
 
         self.print('Model', self.exp.model)
 
-        if self.exp.model == self.MODEL_BERT:
-            self.dataset_class = BertDataset
-            self.model_initializer = BertInit
-            self.model = AutoBert
-        elif self.exp.model == self.MODEL_BART:
-            self.dataset_class = BartDataset
-            self.model_initializer = BartInit
-            self.model = AutoBart
-        elif self.exp.model == self.MODEL_CAR:
-            self.dataset_class = BertDataset
-            self.model_initializer = BertInit
-            self.model = AutoCar
+        models = [AutoBert, AutoBart, AutoGru, AutoCar, AutoCaser]
+        for model in models:  # type: Type[AutoModel]
+            if self.exp.model == model.__name__[4:].upper():
+                self.dataset_class = model.dataset_class
+                self.model_initializer = model.model_initializer
+                self.model = model
+                break
         else:
             raise ValueError(f'Unknown model [{self.exp.model}]')
 
